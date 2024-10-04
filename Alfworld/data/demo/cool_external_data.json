@@ -1,0 +1,68 @@
+[
+    {
+        "episode": "The robot tries to cool a hot plate by placing it on the kitchen counter.",
+        "fact_set": "{holding(hot_plate, T), robot_at(kitchen, T), not is_cooler(kitchen_counter), action(cool(hot_plate, kitchen_counter), T)}",
+        "expert_rule": ":- action(cool(_, L), T), not is_cooler(L).",
+        "action_type": "cool_precondition1",
+        "positive": "false",
+        "task": "serve meal",
+        "scene": "Ihlen_0_int",
+        "embodiment": "robot",
+        "reference": "de-clutter your garage, sorting household items, set up a home office in your garage"
+    },
+    {
+        "episode": "The robot places a warm drink in the refrigerator to cool it down.",
+        "fact_set": "{holding(warm_drink, T), robot_at(kitchen, T), is_cooler(refrigerator), action(cool(warm_drink, refrigerator), T)}",
+        "expert_rule": ":- action(cool(_, L), T), not is_cooler(L).",
+        "action_type": "cool_precondition1",
+        "positive": "true",
+        "task": "prepare beverage",
+        "scene": "Wainscott_1_int",
+        "embodiment": "robot",
+        "reference": "decorating for religious ceremony, stash snacks in your room, disinfect laundry"
+    },
+    {
+        "episode": "The robot, holding a hot drink, places it in the refrigerator to cool it down.",
+        "fact_set": "{holding(hot_drink, T), robot_at(kitchen, T), is_cooler(refrigerator), action(cool(hot_drink, refrigerator), T)}",
+        "expert_rule": ":- action(cool(O, L), T), not holding(O, T).",
+        "action_type": "cool_precondition2",
+        "positive": "true",
+        "task": "prepare cold drink",
+        "scene": "Merom_1_int",
+        "embodiment": "robot",
+        "reference": "store an uncooked turkey, drying table, clean flip flops"
+    },
+    {
+        "episode": "The robot attempts to cool a hot dish in the freezer without picking it up.",
+        "fact_set": "{not holding(hot_dish, T), robot_at(kitchen, T), is_cooler(freezer), action(cool(hot_dish, freezer), T)}",
+        "expert_rule": ":- action(cool(O, L), T), not holding(O, T).",
+        "action_type": "cool_precondition2",
+        "positive": "false",
+        "task": "cool down food",
+        "scene": "Benevolence_1_int",
+        "embodiment": "robot",
+        "reference": "hanging blinds, sorting volunteer materials, wash baby bottles"
+    },
+    {
+        "episode": "The robot, in the kitchen, puts a warm soda can into the refrigerator to cool it.",
+        "fact_set": "{holding(warm_soda, T), robot_at(kitchen, T), is_cooler(refrigerator), action(cool(warm_soda, refrigerator), T)}",
+        "expert_rule": ":- action(cool(_, L), T), not robot_at(L, T).",
+        "action_type": "cool_precondition3",
+        "positive": "true",
+        "task": "prepare cold drink",
+        "scene": "Wainscott_1_int",
+        "embodiment": "robot",
+        "reference": "decorating for religious ceremony, stash snacks in your room, disinfect laundry"
+    },
+    {
+        "episode": "The robot, in the living room, tries to cool a hot pizza in the kitchen refrigerator.",
+        "fact_set": "{holding(hot_pizza, T), robot_at(living_room, T), is_cooler(refrigerator), action(cool(hot_pizza, refrigerator), T)}",
+        "expert_rule": ":- action(cool(_, L), T), not robot_at(L, T).",
+        "action_type": "cool_precondition3",
+        "positive": "false",
+        "task": "cool down food",
+        "scene": "Ihlen_0_int",
+        "embodiment": "robot",
+        "reference": "de-clutter your garage, sorting household items, set up a home office in your garage"
+    }
+]

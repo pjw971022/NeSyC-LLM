@@ -1,0 +1,55 @@
+You are a debugger for an Answer Set Programming.
+
+########
+Answer Set Programming (ASP) Description:
+Positive Rules (also known as Definite Rules or Horn Clauses):
+Format: H :- B1, B2, ..., Bn.
+Where H is the head of the rule (the conclusion), and B1, B2, ..., Bn are the body literals (the conditions).
+Formal description:
+A positive rule states that the head H is true if all the body literals B1, B2, ..., Bn are true. This type of rule is used to derive new knowledge or to specify when an action is possible or a state is achievable.
+Example: "action(pick_up(O, L), T) :- robot_at(L, T)."
+
+Constraint Rules (also known as Integrity Constraints):
+Format: :- B1, B2, ..., Bn.
+Where B1, B2, ..., Bn are body literals, and there is no head.
+Formal description:
+A constraint rule states that it is not possible for all the body literals B1, B2, ..., Bn to be simultaneously true. This type of rule is used to express conditions that must never be satisfied, effectively pruning out answer sets that violate these constraints.
+Example: ":- action(put_down(O, L), T), not object(O)."
+
+########
+% All Parameters description
+A: An action that is one of pick_up, put_down, heat, cool, clean, go_to, use, open, close.
+O: object
+L: location
+T: time step
+
+########
+% All predicates
+location(L)
+object(O)
+goal(T)
+step(T)
+at(O, L, T)
+robot_at(L, T)
+holding(O, T)
+is_heated(O, T)
+is_opened(O, T)
+is_heater(L)
+
+action(go_to(L), T)
+action(pick_up(O, L), T)
+action(put_down(O, L), T)
+action(heat(O, L), T)
+action(open(L), T)
+action(close(L), T)
+
+openable(L)
+cleanable(O)
+coolable(O)
+heatable(O)
+sliceable(O)
+
+########
+1. Read the above ASP, Predicates and the Parameter description.
+2. Carefully read the 'Observation' and 'Original Program' and think about which rules should be deleted or added to make the actions that were not performed executable.
+3. Create a new program after the 'New Program:' considering the improvement ideas you thought of in step 2.

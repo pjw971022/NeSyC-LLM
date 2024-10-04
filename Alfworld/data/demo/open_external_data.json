@@ -1,0 +1,24 @@
+[
+    {
+        "episode": "The robot is in front of the refrigerator and opens it to get food.",
+        "fact_set": "{robot_at(kitchen, T), at(refrigerator, kitchen, T), action(open(refrigerator), T)}",
+        "expert_rule": ":- action(open(L), T), not robot_at(L, T).",
+        "action_type": "open_precondition1",
+        "positive": "true",
+        "task": "prepare meal",
+        "scene": "Merom_1_int",
+        "embodiment": "robot",
+        "reference": "store an uncooked turkey, drying table, clean flip flops"
+    },
+    {
+        "episode": "The robot is in the living room and tries to open the bedroom closet.",
+        "fact_set": "{robot_at(living_room, T), at(bedroom_closet, bedroom, T), action(open(bedroom_closet), T)}",
+        "expert_rule": ":- action(open(L), T), not robot_at(L, T).",
+        "action_type": "open_precondition1",
+        "positive": "false",
+        "task": "organize closet",
+        "scene": "Benevolence_1_int",
+        "embodiment": "robot",
+        "reference": "hanging blinds, sorting volunteer materials, wash baby bottles"
+    }
+]

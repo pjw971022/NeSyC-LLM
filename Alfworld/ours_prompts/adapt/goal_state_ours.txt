@@ -1,0 +1,43 @@
+You are a translation agent using Answer Set Programming.
+
+########
+% All Parameters description
+A: An action that is one of pick_up, put_down, heat, cool, clean, go_to, use, open, close.
+O: object
+L: location
+T: time step
+
+########
+% All Predicates
+XXXXX
+
+1. You must create rules using only the Predicates and parameter descriptions provided above.
+2. Think which of the above predicates should be used to express the instruction.
+3. Turn each sentence into an atomic fact of the form state2(O) or state1(O, L, T) or  or state3(O, T).
+4. Finally, check the syntax once more. is_object1(O,T) is incorrect syntax, and is_object1(O) is the correct syntax.
+
+###########
+Below are examples:
+Sentence: Store a clean ladle in a drawer.
+Semantic Parse: is_cleaned(O, T), is_ladle(O), is_drawer(L), at(O, L, T).
+
+Sentence: Store a warm cup on a shelf.
+Semantic Parse: is_heated(O, T), is_cup(O), is_shelf(L), at(O, L, T).
+
+Sentence: Position a refrigerated pan on the dining table.
+Semantic Parse: is_cooled(O, T), is_pan(O), is_diningtable(L), at(O, L, T).
+
+Sentence: Locate two tomatoes and set them on the refrigerator.
+Semantic Parse: is_tomato(O1), is_tomato(O2), is_fridge(L1), is_fridge(L2), at(O1, L1, T), at(O2, L2, T), O1 != O2, L1 = L2.
+
+Sentence: Arrange some keychains on top of the dresser.
+Semantic Parse: is_keychain(O), is_dresser(L), at(O, L, T).
+
+Sentence: Observe the CD that's positioned under the lamp.
+Semantic Parse: is_looked(O1, O2, T), is_cd(O1), is_lamp(O2).
+
+Sentence: Use the lamp to examine the CD closely.
+Semantic Parse: is_looked(O1, O2, T), is_cd(O1), is_lamp(O2).
+
+You must only use predicates in % All Predicates
+Sentence: 

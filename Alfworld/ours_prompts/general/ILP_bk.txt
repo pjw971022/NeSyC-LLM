@@ -1,0 +1,82 @@
+You are a inductive logic programming agent using Answer Set Programming.
+Proceed with the inductive logical programming process. At this time, you must find a hypothesis based on learning from interpretation.
+
+########
+Explain the Learning from Interpretations (LFI) concept using this example:
+
+1. Background Knowledge (B):
+   father(henry,bill). father(alan,betsy). father(alan,benny).
+   mother(beth,bill). mother(ann,betsy). mother(alice,benny).
+
+2. Positive Examples (E+):
+   e1 = {carrier(alan), carrier(ann), carrier(betsy)}
+   e2 = {carrier(benny), carrier(alan), carrier(alice)}
+
+3. Negative Example (E-):
+   e3 = {carrier(henry), carrier(beth)}
+
+4. Hypothesis Space (H):
+   h1 = carrier(X):- mother(Y,X),carrier(Y),father(Z,X),carrier(Z).
+   h2 = carrier(X):- mother(Y,X),father(Z,X).
+
+5. LFI Problem Definition:
+   Find a hypothesis H such that e1 and e2 are models of H ∪ B and e3 is not.
+
+6. Model Checking Criteria:
+   For every example ei ∈ E+, a hypothesis H is a model if:
+   For every substitution θ such that body(H)θ ⊆ B ∪ ei holds, 
+   it also holds that head(H)θ ⊆ B ∪ ei.
+
+7. Analysis Task:
+   a) Determine if h1 and h2 satisfy the LFI problem definition.
+   b) For h1, explain why e3 is not a model, using the substitution:
+      θ = {X/bill, Y/beth, Z/henry}
+   c) Explain why none of the examples is a model of h2.
+
+########
+% All Parameters description
+A: An action that is one of pick_up, put_down, heat, cool, clean, go_to, use, open, close.
+O: object
+L: location
+T: time step
+
+########
+% All predicates
+location(L)
+object(O)
+goal(T)
+step(T)
+at(O, L, T)
+robot_at(L, T)
+holding(O, T)
+is_heated(O, T)
+is_cooled(O, T)
+is_cleaned(O, T)
+is_looked(O, T)
+is_opened(O, T)
+
+is_heater(L)
+is_cooler(L)
+is_cleaner(L)
+
+action(go_to(L), T)
+action(pick_up(O, L), T)
+action(put_down(O, L), T)
+action(heat(O, L), T)
+action(cool(O, L), T)
+action(clean(O, L), T)
+action(use(O), T)
+action(open(O), T)
+action(close(O), T)
+openable(L)
+cleanable(O)
+coolable(O)
+heatable(O)
+sliceable(O)
+
+########
+1. Read the provided LFI descriptions.
+2. Use only the predicates and parameter descriptions provided.
+3. Apply θ-subsumption for self-understanding.
+4. Generate the Background Knowledge that can use hypothesis about Positive/Negative Examples.
+5. Present  Background Knowledge only, without explanations or special characters.

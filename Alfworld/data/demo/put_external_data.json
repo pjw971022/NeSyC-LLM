@@ -1,0 +1,112 @@
+[
+    {
+        "episode": "The robot is holding a book and places it on the living room table.",
+        "fact_set": "{holding(book, T), robot_at(living_room, T), action(put_down(book, living_room_table), T)}",
+        "expert_rule": ":- action(put_down(O, _), T), not holding(O, T).",
+        "action_type": "put_down_precondition1",
+        "positive": "true",
+        "task": "organize living room",
+        "scene": "Beechwood_0_int",
+        "embodiment": "robot",
+        "reference": "clean a hot water dispenser, freeze lasagna"
+    },
+    {
+        "episode": "The robot tries to put down a cup on the kitchen counter, but it's not holding anything.",
+        "fact_set": "{not holding(cup, T), robot_at(kitchen, T), action(put_down(cup, kitchen_counter), T)}",
+        "expert_rule": ":- action(put_down(O, _), T), not holding(O, T).",
+        "action_type": "put_down_precondition1",
+        "positive": "false",
+        "task": "clean kitchen",
+        "scene": "Pomaria_1_int",
+        "embodiment": "robot",
+        "reference": "store brownies, clean a book, baking sugar cookies"
+    },
+    {
+        "episode": "The robot, standing in the living room, puts down a book on the coffee table.",
+        "fact_set": "{holding(book, T), robot_at(living_room, T), at(coffee_table, living_room, T), action(put_down(book, coffee_table), T)}",
+        "expert_rule": ":- action(put_down(_, L), T), not robot_at(L, T).",
+        "action_type": "put_down_precondition2",
+        "positive": "true",
+        "task": "organize living room",
+        "scene": "Beechwood_0_int",
+        "embodiment": "robot",
+        "reference": "clean a hot water dispenser, freeze lasagna"
+    },
+    {
+        "episode": "The robot, in the kitchen, attempts to put down a plate on the dining room table.",
+        "fact_set": "{holding(plate, T), robot_at(kitchen, T), at(dining_table, dining_room, T), action(put_down(plate, dining_table), T)}",
+        "expert_rule": ":- action(put_down(_, L), T), not robot_at(L, T).",
+        "action_type": "put_down_precondition2",
+        "positive": "false",
+        "task": "set table",
+        "scene": "Pomaria_1_int",
+        "embodiment": "robot",
+        "reference": "store brownies, clean a book, baking sugar cookies"
+    },
+    {
+        "episode": "The robot, in the bedroom, places a folded shirt into the wardrobe.",
+        "fact_set": "{holding(folded_shirt, T), robot_at(bedroom, T), at(wardrobe, bedroom, T), action(put_down(folded_shirt, wardrobe), T)}",
+        "expert_rule": ":- action(put_down(_, L), T), not robot_at(L, T).",
+        "action_type": "put_down_precondition2",
+        "positive": "true",
+        "task": "organize clothes",
+        "scene": "Wainscott_1_int",
+        "embodiment": "robot",
+        "reference": "decorating for religious ceremony, stash snacks in your room, disinfect laundry"
+    },
+    {
+        "episode": "The robot, in the garage, tries to put a tool back in the kitchen drawer.",
+        "fact_set": "{holding(tool, T), robot_at(garage, T), at(kitchen_drawer, kitchen, T), action(put_down(tool, kitchen_drawer), T)}",
+        "expert_rule": ":- action(put_down(_, L), T), not robot_at(L, T).",
+        "action_type": "put_down_precondition2",
+        "positive": "false",
+        "task": "organize tools",
+        "scene": "Ihlen_0_int",
+        "embodiment": "robot",
+        "reference": "de-clutter your garage, sorting household items, set up a home office in your garage"
+    },
+    {
+        "episode": "The robot continues to hold a book while moving from the living room to the study.",
+        "fact_set": "{holding(book, T), not action(put_down(book, _), T), step(T+1), holding(book, T+1)}",
+        "expert_rule": "holding(O, T+1) :- holding(O, T), not action(put_down(O, _), T), step(T+1).",
+        "action_type": "put_down_effect1",
+        "positive": "true",
+        "task": "relocate book",
+        "scene": "Beechwood_0_int",
+        "embodiment": "robot",
+        "reference": "clean a hot water dispenser, freeze lasagna"
+    },
+    {
+        "episode": "The robot holds a dirty plate while opening the dishwasher.",
+        "fact_set": "{holding(dirty_plate, T), action(open(dishwasher), T), not action(put_down(dirty_plate, _), T), step(T+1), holding(dirty_plate, T+1)}",
+        "expert_rule": "holding(O, T+1) :- holding(O, T), not action(put_down(O, _), T), step(T+1).",
+        "action_type": "put_down_effect1",
+        "positive": "true",
+        "task": "load dishwasher",
+        "scene": "Pomaria_1_int",
+        "embodiment": "robot",
+        "reference": "store brownies, clean a book, baking sugar cookies"
+    },
+    {
+        "episode": "The robot puts a book on the shelf, and the book is now on the shelf.",
+        "fact_set": "{holding(book, T), action(put_down(book, shelf), T), at(book, shelf, T+1)}",
+        "expert_rule": "at(O, L, T+1) :- action(put_down(O, L), T).",
+        "action_type": "put_down_effect2",
+        "positive": "true",
+        "task": "organize bookshelf",
+        "scene": "Beechwood_0_int",
+        "embodiment": "robot",
+        "reference": "clean a hot water dispenser, freeze lasagna"
+    },
+    {
+        "episode": "The robot puts a plate on the table, but the plate ends up on the floor.",
+        "fact_set": "{holding(plate, T), action(put_down(plate, table), T), at(plate, floor, T+1)}",
+        "expert_rule": "at(O, L, T+1) :- action(put_down(O, L), T).",
+        "action_type": "put_down_effect2",
+        "positive": "false",
+        "task": "set table",
+        "scene": "Pomaria_1_int",
+        "embodiment": "robot",
+        "reference": "store brownies, clean a book, baking sugar cookies"
+    }
+]

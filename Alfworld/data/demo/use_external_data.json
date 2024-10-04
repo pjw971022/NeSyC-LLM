@@ -1,0 +1,101 @@
+[
+    {
+        "episode": "The robot uses the remote control to turn on the TV in the living room.",
+        "fact_set": "{robot_at(living_room, T), at(remote_control, living_room, T), action(use(remote_control), T)}",
+        "expert_rule": ":- action(use(O), T), robot_at(L, T), not at(O, L, T).",
+        "action_type": "use_precondition1",
+        "positive": "true",
+        "task": "entertainment setup",
+        "scene": "Beechwood_0_int",
+        "embodiment": "robot",
+        "reference": "clean a hot water dispenser, freeze lasagna"
+    },
+    {
+        "episode": "The robot is in the bedroom and tries to use the coffee maker that is in the kitchen.",
+        "fact_set": "{robot_at(bedroom, T), at(coffee_maker, kitchen, T), action(use(coffee_maker), T)}",
+        "expert_rule": ":- action(use(O), T), robot_at(L, T), not at(O, L, T).",
+        "action_type": "use_precondition1",
+        "positive": "false",
+        "task": "make coffee",
+        "scene": "Pomaria_1_int",
+        "embodiment": "robot",
+        "reference": "store brownies, clean a book, baking sugar cookies"
+    },
+    {
+        "episode": "The robot uses a magnifying glass to examine a rare coin in the study.",
+        "fact_set": "{holding(rare_coin, T), robot_at(study, T), at(magnifying_glass, study, T), action(use(magnifying_glass), T), is_looked(rare_coin, magnifying_glass, T+1)}",
+        "expert_rule": "is_looked(O1, O2, T+1) :- action(use(O2), T), holding(O1, T), robot_at(L, T), at(O2,L,T).",
+        "action_type": "use_effect1",
+        "positive": "true",
+        "task": "examine collectibles",
+        "scene": "Beechwood_0_int",
+        "embodiment": "robot",
+        "reference": "clean a hot water dispenser, freeze lasagna"
+    },
+    {
+        "episode": "In the kitchen, the robot uses a food thermometer to check the temperature of a roast in the oven.",
+        "fact_set": "{holding(roast, T), robot_at(kitchen, T), at(food_thermometer, kitchen, T), action(use(food_thermometer), T), is_looked(roast, food_thermometer, T+1)}",
+        "expert_rule": "is_looked(O1, O2, T+1) :- action(use(O2), T), holding(O1, T), robot_at(L, T), at(O2,L,T).",
+        "action_type": "use_effect1",
+        "positive": "true",
+        "task": "cook meal",
+        "scene": "Pomaria_1_int",
+        "embodiment": "robot",
+        "reference": "store brownies, clean a book, baking sugar cookies"
+    },
+    {
+        "episode": "The robot tries to use a microscope in the living room to examine a dust particle, but the microscope is in the study.",
+        "fact_set": "{holding(dust_particle, T), robot_at(living_room, T), at(microscope, study, T), action(use(microscope), T), not is_looked(dust_particle, microscope, T+1)}",
+        "expert_rule": "is_looked(O1, O2, T+1) :- action(use(O2), T), holding(O1, T), robot_at(L, T), at(O2,L,T).",
+        "action_type": "use_effect1",
+        "positive": "false",
+        "task": "scientific observation",
+        "scene": "Wainscott_1_int",
+        "embodiment": "robot",
+        "reference": "decorating for religious ceremony, stash snacks in your room, disinfect laundry"
+    },
+    {
+        "episode": "The robot uses a barcode scanner to check the price of a product in the storage room.",
+        "fact_set": "{holding(product, T), robot_at(storage_room, T), at(barcode_scanner, storage_room, T), action(use(barcode_scanner), T), is_looked(product, barcode_scanner, T+1)}",
+        "expert_rule": "is_looked(O1, O2, T+1) :- action(use(O2), T), holding(O1, T), robot_at(L, T), at(O2,L,T).",
+        "action_type": "use_effect1",
+        "positive": "true",
+        "task": "inventory management",
+        "scene": "Benevolence_1_int",
+        "embodiment": "robot",
+        "reference": "hanging blinds, sorting volunteer materials, wash baby bottles"
+    },
+    {
+        "episode": "The robot uses a microscope to examine a cell sample, which wasn't previously observed.",
+        "fact_set": "{not is_looked(cell_sample, microscope, T), action(use(microscope), T), is_looked(cell_sample, microscope, T+1)}",
+        "expert_rule": ":- is_looked(O1, O2, T+1), not is_looked(O1, O2, T), not action(use(O2), T).",
+        "action_type": "look_precondition1",
+        "positive": "true",
+        "task": "scientific research",
+        "scene": "Beechwood_0_int",
+        "embodiment": "robot",
+        "reference": "clean a hot water dispenser, freeze lasagna"
+    },
+    {
+        "episode": "The robot uses a metal detector to scan a section of the garden that wasn't previously examined.",
+        "fact_set": "{not is_looked(garden_section, metal_detector, T), action(use(metal_detector), T), is_looked(garden_section, metal_detector, T+1)}",
+        "expert_rule": ":- is_looked(O1, O2, T+1), not is_looked(O1, O2, T), not action(use(O2), T).",
+        "action_type": "look_precondition1",
+        "positive": "true",
+        "task": "search for buried objects",
+        "scene": "Pomaria_1_int",
+        "embodiment": "robot",
+        "reference": "store brownies, clean a book, baking sugar cookies"
+    },
+    {
+        "episode": "A book suddenly becomes examined by a magnifying glass without the robot using the magnifying glass.",
+        "fact_set": "{not is_looked(book, magnifying_glass, T), not action(use(magnifying_glass), T), is_looked(book, magnifying_glass, T+1)}",
+        "expert_rule": ":- is_looked(O1, O2, T+1), not is_looked(O1, O2, T), not action(use(O2), T).",
+        "action_type": "look_precondition1",
+        "positive": "false",
+        "task": "examine literature",
+        "scene": "Wainscott_1_int",
+        "embodiment": "robot",
+        "reference": "decorating for religious ceremony, stash snacks in your room, disinfect laundry"
+    }
+]

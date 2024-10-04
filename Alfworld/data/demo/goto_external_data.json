@@ -1,0 +1,24 @@
+[
+    {
+        "episode": "The robot remains in the kitchen while preparing a meal.",
+        "fact_set": "{robot_at(kitchen, T), not action(go_to(_), T), step(T+1), robot_at(kitchen, T+1)}",
+        "expert_rule": "robot_at(L, T+1) :- robot_at(L, T), not action(go_to(_), T), step(T+1).",
+        "action_type": "goto_effect1",
+        "positive": "true",
+        "task": "prepare meal",
+        "scene": "Merom_1_int",
+        "embodiment": "robot",
+        "reference": "store an uncooked turkey, drying table, clean flip flops"
+    },
+    {
+        "episode": "The robot moves from the living room to the kitchen.",
+        "fact_set": "{robot_at(living_room, T), action(go_to(kitchen), T), step(T+1), robot_at(kitchen, T+1)}",
+        "expert_rule": "robot_at(L, T+1) :- robot_at(L, T), not action(go_to(_), T), step(T+1).",
+        "action_type": "goto_effect1",
+        "positive": "false",
+        "task": "navigate rooms",
+        "scene": "Benevolence_1_int",
+        "embodiment": "robot",
+        "reference": "hanging blinds, sorting volunteer materials, wash baby bottles"
+    }
+]

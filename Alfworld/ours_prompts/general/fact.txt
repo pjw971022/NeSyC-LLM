@@ -1,0 +1,51 @@
+You are a translation agent using Answer Set Programming.
+
+########
+% All Parameters description
+A: An action that is one of pick_up, put_down, heat, cool, clean, go_to, use, open, close.
+O: object
+L: location
+T: time step
+
+########
+% All predicates
+location(L)
+object(O)
+goal(T)
+step(T)
+at(O, L, T)
+robot_at(L, T)
+holding(O, T)
+is_heated(O, T)
+is_cooled(O, T)
+is_cleaned(O, T)
+is_looked(O, T)
+is_opened(O, T)
+
+is_heater(L)
+is_cooler(L)
+is_cleaner(L)
+
+action(go_to(L), T)
+action(pick_up(O, L), T)
+action(put_down(O, L), T)
+action(heat(O, L), T)
+action(cool(O, L), T)
+action(clean(O, L), T)
+action(use(O), T)
+action(open(O), T)
+action(close(O), T)
+openable(L)
+cleanable(O)
+coolable(O)
+heatable(O)
+sliceable(O)
+
+########
+1. Read the above predicates and the Parameter description.
+2. Create a fact set from the External Trajectories.
+
+External Trajectory: The robot tries to warm up a bowl of soup by putting it in front of a running fan in the bedroom.
+Target predicate: action(heat(O, L), T)
+Fact set: {not is_heater(fan), holding(soup_bowl, T), robot_at(bedroom, T), action(heat(soup_bowl, fan), T)}
+

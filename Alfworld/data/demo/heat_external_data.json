@@ -1,0 +1,101 @@
+[
+    {
+    "episode": "The robot heats a frozen meal in the oven in the kitchen.",
+    "fact_set": "{is_heater(oven), holding(frozen_meal, T), robot_at(kitchen, T), action(heat(frozen_meal, oven), T)}",
+    "expert_rule": ":- action(heat(_, L), T), not is_heater(L).",
+    "action_type": "heat_precondition1",
+    "positive": "true",
+    "task": "cook meal",
+    "scene": "Beechwood_0_int",
+    "embodiment": "robot",
+    "reference": "prepare dinner, use kitchen appliances"
+    },
+    {
+    "episode": "The robot attempts to heat a cup of coffee by placing it on a table in the living room.",
+    "fact_set": "{not is_heater(table), holding(coffee_cup, T), robot_at(living_room, T), action(heat(coffee_cup, table), T)}",
+    "expert_rule": ":- action(heat(_, L), T), not is_heater(L).",
+    "action_type": "heat_precondition1",
+    "positive": "false",
+    "task": "warm beverage",
+    "scene": "Pomaria_1_int",
+    "embodiment": "robot",
+    "reference": "arrange living room, serve drinks"
+    },
+    {
+        "episode": "The robot successfully uses a hair dryer to warm a towel in the bathroom.",
+        "fact_set": "{is_heater(hair_dryer), holding(towel, T), robot_at(bathroom, T), action(heat(towel, hair_dryer), T)}",
+        "expert_rule": ":- action(heat(_, L), T), not is_heater(L).",
+        "action_type": "heat_precondition1",
+        "positive": "true",
+        "task": "warm towel",
+        "scene": "Wainscott_1_int",
+        "embodiment": "robot",
+        "reference": "prepare bathroom, dry items"
+    },
+    {
+        "episode": "The robot tries to heat food by placing it in direct sunlight on a windowsill.",
+        "fact_set": "{not is_heater(windowsill), holding(food_plate, T), robot_at(bedroom, T), action(heat(food_plate, windowsill), T)}",
+        "expert_rule": ":- action(heat(_, L), T), not is_heater(L).",
+        "action_type": "heat_precondition1",
+        "positive": "false",
+        "task": "warm food",
+        "scene": "Merom_1_int",
+        "embodiment": "robot",
+        "reference": "arrange bedroom, use natural light"
+    },
+    {
+        "episode": "The robot uses a space heater to warm up a room.",
+        "fact_set": "{is_heater(space_heater), robot_at(living_room, T), action(heat(room, space_heater), T)}",
+        "expert_rule": ":- action(heat(_, L), T), not is_heater(L).",
+        "action_type": "heat_precondition1",
+        "positive": "true",
+        "task": "warm room",
+        "scene": "Benevolence_1_int",
+        "embodiment": "robot",
+        "reference": "control room temperature, use portable appliances"
+    },
+    {
+        "episode": "The robot, holding a cold cup of coffee, uses the microwave to heat it.",
+        "fact_set": "{holding(cold_coffee, T), robot_at(kitchen, T), is_heater(microwave), action(heat(cold_coffee, microwave), T)}",
+        "expert_rule": ":- action(heat(O, L), T), not holding(O, T).",
+        "action_type": "heat_precondition2",
+        "positive": "true",
+        "task": "reheat beverage",
+        "scene": "Beechwood_0_int",
+        "embodiment": "robot",
+        "reference": "clean a hot water dispenser, freeze lasagna"
+    },
+    {
+        "episode": "The robot tries to heat a plate of food in the microwave without picking it up first.",
+        "fact_set": "{not holding(food_plate, T), robot_at(kitchen, T), is_heater(microwave), action(heat(food_plate, microwave), T)}",
+        "expert_rule": ":- action(heat(O, L), T), not holding(O, T).",
+        "action_type": "heat_precondition2",
+        "positive": "false",
+        "task": "reheat meal",
+        "scene": "Pomaria_1_int",
+        "embodiment": "robot",
+        "reference": "store brownies, clean a book, baking sugar cookies"
+    },
+    {
+        "episode": "The robot is in the kitchen, holding a bowl of soup, and uses the microwave to heat it.",
+        "fact_set": "{holding(soup_bowl, T), robot_at(kitchen, T), is_heater(microwave), action(heat(soup_bowl, microwave), T)}",
+        "expert_rule": ":- action(heat(_, L), T), not robot_at(L, T).",
+        "action_type": "heat_precondition3",
+        "positive": "true",
+        "task": "prepare meal",
+        "scene": "Merom_1_int",
+        "embodiment": "robot",
+        "reference": "store an uncooked turkey, drying table, clean flip flops"
+    },
+    {
+        "episode": "The robot is in the kitchen, holding a bowl of soup, and uses the microwave to heat it.",
+        "fact_set": "{holding(soup_bowl, T), robot_at(kitchen, T), is_heater(microwave), action(heat(soup_bowl, microwave), T)}",
+        "expert_rule": ":- action(heat(_, L), T), not robot_at(L, T).",
+        "action_type": "heat_precondition3",
+        "positive": "true",
+        "task": "prepare meal",
+        "scene": "Merom_1_int",
+        "embodiment": "robot",
+        "reference": "store an uncooked turkey, drying table, clean flip flops"
+    }
+]

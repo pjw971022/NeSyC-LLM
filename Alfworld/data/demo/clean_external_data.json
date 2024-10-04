@@ -1,0 +1,68 @@
+[
+    {
+        "episode": "The robot uses the vacuum cleaner to clean the living room carpet.",
+        "fact_set": "{robot_at(living_room, T), is_cleaner(vacuum_cleaner), action(clean(carpet, vacuum_cleaner), T)}",
+        "expert_rule": ":- action(clean(_, L), T), not is_cleaner(L).",
+        "action_type": "clean_precondition1",
+        "positive": "true",
+        "task": "clean living room",
+        "scene": "Beechwood_0_int",
+        "embodiment": "robot",
+        "reference": "clean a hot water dispenser, freeze lasagna"
+    },
+    {
+        "episode": "The robot tries to clean a dirty dish using a book in the study.",
+        "fact_set": "{holding(dirty_dish, T), robot_at(study, T), not is_cleaner(book), action(clean(dirty_dish, book), T)}",
+        "expert_rule": ":- action(clean(_, L), T), not is_cleaner(L).",
+        "action_type": "clean_precondition1",
+        "positive": "false",
+        "task": "clean dishes",
+        "scene": "Pomaria_1_int",
+        "embodiment": "robot",
+        "reference": "store brownies, clean a book, baking sugar cookies"
+    },
+    {
+        "episode": "The robot, holding a dirty plate, uses the dishwasher to clean it.",
+        "fact_set": "{holding(dirty_plate, T), robot_at(kitchen, T), is_cleaner(dishwasher), action(clean(dirty_plate, dishwasher), T)}",
+        "expert_rule": ":- action(clean(O, L), T), not holding(O, T).",
+        "action_type": "clean_precondition2",
+        "positive": "true",
+        "task": "wash dishes",
+        "scene": "Beechwood_0_int",
+        "embodiment": "robot",
+        "reference": "clean a hot water dispenser, freeze lasagna"
+    },
+    {
+        "episode": "The robot tries to clean a dirty shirt in the washing machine without picking it up first.",
+        "fact_set": "{not holding(dirty_shirt, T), robot_at(laundry_room, T), is_cleaner(washing_machine), action(clean(dirty_shirt, washing_machine), T)}",
+        "expert_rule": ":- action(clean(O, L), T), not holding(O, T).",
+        "action_type": "clean_precondition2",
+        "positive": "false",
+        "task": "do laundry",
+        "scene": "Pomaria_1_int",
+        "embodiment": "robot",
+        "reference": "store brownies, clean a book, baking sugar cookies"
+    },
+    {
+        "episode": "The robot, in the kitchen, puts a warm soda can into the refrigerator to cool it.",
+        "fact_set": "{holding(warm_soda, T), robot_at(kitchen, T), is_cooler(refrigerator), action(cool(warm_soda, refrigerator), T)}",
+        "expert_rule": ":- action(cool(_, L), T), not robot_at(L, T).",
+        "action_type": "cool_precondition3",
+        "positive": "true",
+        "task": "prepare cold drink",
+        "scene": "Wainscott_1_int",
+        "embodiment": "robot",
+        "reference": "decorating for religious ceremony, stash snacks in your room, disinfect laundry"
+    },
+    {
+        "episode": "The robot, in the living room, tries to cool a hot pizza in the kitchen refrigerator.",
+        "fact_set": "{holding(hot_pizza, T), robot_at(living_room, T), is_cooler(refrigerator), action(cool(hot_pizza, refrigerator), T)}",
+        "expert_rule": ":- action(cool(_, L), T), not robot_at(L, T).",
+        "action_type": "cool_precondition3",
+        "positive": "false",
+        "task": "cool down food",
+        "scene": "Ihlen_0_int",
+        "embodiment": "robot",
+        "reference": "de-clutter your garage, sorting household items, set up a home office in your garage"
+    }
+]
