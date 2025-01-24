@@ -1,5 +1,4 @@
-# Nusaw(NeSyC)
-This README provides step-by-step instructions to set up and run the NeSyC(=Nusaw).
+# NeSyC
 
 ## Installation
 
