@@ -4,6 +4,12 @@
 [![OpenReview](https://img.shields.io/badge/OpenReview-Forum-green)](https://openreview.net/forum?id=VoayJihXra)
 [![GitHub](https://img.shields.io/badge/GitHub-Code-blue)](https://github.com/pjw971022/nesyc-LLM)
 
+
+<p align="center">
+  <img src="static/videos/ani_v2.mp4" alt="NeSyC Framework" width="80%">
+</p>
+
+
 ## Authors
 [Jinwoo Park](https://pjw971022.github.io/)<sup>1*</sup>, [Wonje Choi](https://scholar.google.com/citations?user=L4d1CjEAAAAJ&hl=ko)<sup>1*</sup>, [Sanghyun Ahn](https://scholar.google.co.kr/citations?user=xGh7hdIAAAAJ&hl=ko)<sup>1</sup>, [Daehee Lee](https://www.linkedin.com/in/daehee-lee-10b396246/?locale=en_US)<sup>1,2</sup>, [Honguk Woo](https://scholar.google.co.kr/citations?user=Gaxjc7UAAAAJ&hl=en)<sup>1</sup>
 
