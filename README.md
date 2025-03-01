@@ -30,14 +30,7 @@ We also introduce a **memory-based monitoring scheme** that efficiently detects 
 - Contrastive generality improvement scheme
 - Memory-based monitoring for error detection
 - Effective knowledge evolution across domains
-
-## Results
-
-NeSyC demonstrates superior performance across various experimental conditions:
-- High success rates in complete, noisy, and imperfect experience sets
-- Effective knowledge refinement capabilities
-- Robust performance in complex embodied tasks
-
+  
 ## Citation
 
 ```bibtex
@@ -47,27 +40,3 @@ NeSyC demonstrates superior performance across various experimental conditions:
   booktitle={The Thirteenth International Conference on Learning Representations}
 }
 ```
-
-## Project Structure
-
-This repository contains the implementation of NeSyC as presented in our ICLR 2025 paper. The main components include:
-
-- LLM integration for hypothesis generation
-- Symbolic validation tools
-- Contrastive learning mechanisms
-- Memory monitoring system
-
-## Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/pjw971022/nesyc-LLM.git
-cd nesyc-LLM
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-## Usage
-
-Detailed usage instructions coming soon. Check our [GitHub repository](https://github.com/pjw971022/nesyc-LLM) for updates.
