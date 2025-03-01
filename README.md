@@ -4,8 +4,6 @@
 [![OpenReview](https://img.shields.io/badge/OpenReview-Forum-green)](https://openreview.net/forum?id=VoayJihXra)
 [![GitHub](https://img.shields.io/badge/GitHub-Code-blue)](https://github.com/pjw971022/nesyc-LLM)
 
-**ICLR 2025 (Poster)**
-
 ## Authors
 - [Jinwoo Park](https://pjw971022.github.io/)<sup>1*</sup>
 - [Wonje Choi](https://scholar.google.com/citations?user=L4d1CjEAAAAJ&hl=ko)<sup>1*</sup>
