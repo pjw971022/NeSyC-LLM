@@ -35,8 +35,14 @@ We also introduce a **memory-based monitoring scheme** that efficiently detects 
 
 ```bibtex
 @inproceedings{choinesyc,
-  title={NeSyC: A Neuro-symbolic Continual Learner For Complex Embodied Tasks in Open Domains},
+  title={NeSyC: A Neuro-symbolic Continual Learner For Complex Embodied Tasks In Open Domains},
   author={Choi, Wonje and Park, Jinwoo and Ahn, Sanghyun and Lee, Daehee and Woo, Honguk},
   booktitle={The Thirteenth International Conference on Learning Representations}
+}
+@article{choi2025nesyc,
+  title={NeSyC: A Neuro-symbolic Continual Learner For Complex Embodied Tasks In Open Domains},
+  author={Choi, Wonje and Park, Jinwoo and Ahn, Sanghyun and Lee, Daehee and Woo, Honguk},
+  journal={arXiv preprint arXiv:2503.00870},
+  year={2025}
 }
 ```
