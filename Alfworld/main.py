@@ -20,9 +20,9 @@ def setup_pipeline(args):
         pipeline.asp_program = BASE_ASP_PROGRAM.replace('{max_step}', str(MAX_STEP_NUM))
         pipeline.clingo_seed = args.seed
         path_prompt = {
-            'adapt_fact': f'./Nesyc/Alfworld/ours_prompts/adapt/fact.txt',
-            'adapt_rule': f'./Nesyc/Alfworld/ours_prompts/adapt/rule.txt',
-            'goal': f'./Nesyc/Alfworld/ours_prompts/adapt/goal_state_ours.txt'
+            'adapt_fact': f'./Alfworld/ours_prompts/adapt/fact.txt',
+            'adapt_rule': f'./Alfworld/ours_prompts/adapt/rule.txt',
+            'goal': f'./Alfworld/ours_prompts/adapt/goal_state_ours.txt'
         }
 
         pipeline.load_prompt(path_prompt)
@@ -80,12 +80,14 @@ def main():
     parser.add_argument('--split', type=str, default='eval_in_distribution', help='train | eval_in_distribution | eval_out_distribution')
     parser.add_argument('--perturb', type=float, default=0.5, help='missing rate of location')
     parser.add_argument('--seed', type=int, default=42, help='random seed')
-    parser.add_argument('--save_path', type=str, default='./Nesyc/Alfworld/ablation2_alfworld_results.csv', help='path to save the results')
+    parser.add_argument('--save_path', type=str, default='./Alfworld/ablation2_alfworld_results.csv', help='path to save the results')
     parser.add_argument('--eval_episode_num', type=int, default=20, help='number of episodes to evaluate')
     parser.add_argument('--grounding', action='store_true', help='whether to use grounding')
     parser.add_argument('--cot', action='store_true', help='Chain of thought')
     parser.add_argument('--mode', type=str, default='base', help='base | noisy | incomplete')
     parser.add_argument('--refine', action='store_true', help='whether to refine the rules')
+    parser.add_argument('--asp', action='store_true', help='use ASP solver')
+    parser.add_argument('--ilp', action='store_true', help='use ILP rules')
     args = parser.parse_args()
 
     print("Argument Specification:")
@@ -97,7 +99,7 @@ def main():
     print("\n")
 
     np.random.seed(args.seed)
-    save_path = f'./Nesyc/Alfworld/data/ilp_rule_{args.engine}.txt'
+    save_path = f'./Alfworld/data/ilp_rule_{args.engine}.txt'
 
     if args.procedure == 'general':
         args_dict = vars(args)
@@ -105,9 +107,9 @@ def main():
         pipeline.method = args.method
         pipeline.engine = args.engine
         path_prompt = {
-            'general_fact': f'./Nesyc/Alfworld/ours_prompts/general/fact.txt',
-            'general_bk': f'./Nesyc/Alfworld/ours_prompts/general/ILP_bk.txt',
-            'general_rule': f'./Nesyc/Alfworld/ours_prompts/general/ILP_rule.txt',
+            'general_fact': f'./Alfworld/ours_prompts/general/fact.txt',
+            'general_bk': f'./Alfworld/ours_prompts/general/ILP_bk.txt',
+            'general_rule': f'./Alfworld/ours_prompts/general/ILP_rule.txt',
         }
         pipeline.rule_save_path = save_path
 

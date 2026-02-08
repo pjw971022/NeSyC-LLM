@@ -1,0 +1,18 @@
+:- action(pick_up(O,L),T), not at(O,L,T).
+:- action(pick_up(O,L),T), not robot_at(L,T).
+:- action(pick_up(O, L), T), holding(O, T).
+:- action(pick_up(O, L), T), not at(O, L, T).
+:- action(put_down(O, L), T), not holding(O, T).
+:- action(put_down(O, L), T), not robot_at(L, T).
+:- action(heat(O, L), T), not is_heater(L).
+:- action(heat(O, L), T), not holding(O, T).
+:- action(heat(O, L), T), not robot_at(L, T).
+:- action(cool(O, L), T), not holding(O, T).
+:- action(cool(O, L), T), not robot_at(L, T).
+:- action(cool(O, L), T), not is_cooler(L).
+:- action(cool(O, L), T), not coolable(O).
+:- action(clean(O, L), T), not cleanable(O).
+:- action(clean(O, L), T), not is_cleaner(L).
+:- action(clean(O, L), T), not robot_at(L, T).
+:- action(clean(O, L), T), not holding(O, T).
+:- action(open(L), T), not robot_at(L, T), openable(L).

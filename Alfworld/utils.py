@@ -5,8 +5,8 @@ import alfworld
 import alfworld.agents.environment
 import random
 from typing import List, Tuple, Dict, Any
-ALFWORLD_DATA_PATH = ""
-CONFIG_FILE = './Nesyc/Alfworld/base_config.yaml'
+ALFWORLD_DATA_PATH = os.path.expanduser("~/.cache/alfworld")
+CONFIG_FILE = './Alfworld/base_config.yaml'
 EVAL_SET_NUM = 1
 MAX_STEP_NUM = 15
 PREFIXES = {
@@ -466,7 +466,7 @@ import random
 
 class RetrievalEngine:
     def __init__(self,
-                 demo_data_path: str = './Nesyc/Alfworld/data/demo/total_external_data.json',):
+                 demo_data_path: str = './Alfworld/data/demo/total_external_data.json',):
         self.naturalFormat=True
         self.demo_set = pd.read_json(demo_data_path) # pd.read_pickle(knn_data_path)
         self.sentence_embedder = SentenceTransformer("all-MiniLM-L12-v2")

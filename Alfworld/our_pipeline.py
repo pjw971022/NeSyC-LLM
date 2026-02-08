@@ -248,7 +248,7 @@ class Pipeline:
         rule_sets = ''
         for action_type, target_predicate in TARGET_PREDICATES.items():
             action = action_type.split('_')[0]
-            path_to_dataset = f'./Nesyc/Alfworld/data/demo/{action}_external_data.json'
+            path_to_dataset = f'./Alfworld/data/demo/{action}_external_data.json'
             with open(path_to_dataset, 'r') as f:
                 dataset = json.load(f)
             p_examples = []

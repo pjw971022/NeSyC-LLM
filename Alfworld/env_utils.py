@@ -10,7 +10,7 @@ from typing import Dict, Any, Callable, List
 
 def load_paraphrased_instruction(name: str, dynamics_type: str):
     try:
-        with open(f"./Nesyc/Alfworld/data/instr/{dynamics_type}_paraphrased_instr.json", "r") as f: # {dynamics_type}
+        with open(f"./Alfworld/data/instr/{dynamics_type}_paraphrased_instr.json", "r") as f: # {dynamics_type}
             data = json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         print("Error: Unable to read the file.")
@@ -33,7 +33,7 @@ def save_error_log(dynamics_type, name, goal, goal_state, adapted_rules, predict
         "total_traj": total_traj,
         "timestamp": datetime.datetime.now().isoformat()
     }
-    file_path = f"./Nesyc/Alfworld/data/error_log/{dynamics_type}_error_analysis.json"
+    file_path = f"./Alfworld/data/error_log/{dynamics_type}_error_analysis.json"
     if not os.path.exists(file_path):
         existing_data = []
     else:
@@ -371,6 +371,7 @@ def run_episode(
                 action = filter_actions_by_step(predicted_plan, step_num)
             else:
                 action = answer_sets[0]
+        else:
             raise ValueError(f"Invalid method: {method}")
         
         action_info = {

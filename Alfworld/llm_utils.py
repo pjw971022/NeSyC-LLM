@@ -1,3 +1,4 @@
+import os
 import openai
 from langchain_community.chat_models import ChatOpenAI, ChatOllama
 from langchain.schema import (
@@ -8,7 +9,7 @@ from langchain_core.messages import HumanMessage
 import random
 import time
 openai.api_key = OPENAI_API_KEY = ''
-GOOGLE_API_KEY = ''
+GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY', '')
 
 from langchain_google_genai import (
     ChatGoogleGenerativeAI,
