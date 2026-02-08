@@ -6,7 +6,7 @@
 
 
 <p align="center">
-  <img src="static/videos/ani_v2.gif" alt="NeSyC Framework" width="80%">
+  <img src="static/videos/ani_v2.gif" alt="NeSyC Framework" width="100%">
 </p>
 
 
