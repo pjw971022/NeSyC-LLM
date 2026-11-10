@@ -87,7 +87,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dynamics', type=str, default='stationary', help='stationary | low_non_stationary | high_non_stationary')
     parser.add_argument('--procedure', type=str, default='adapt', help='general (learn rules) | adapt (evaluate) | both')
-    parser.add_argument('--method', type=str, default='ours', help='ours')
+    parser.add_argument('--method', type=str, default='ours', choices=['ours', 'react', 'reflexion'], help='ours | react | reflexion')
     parser.add_argument('--engine', type=str, required=True, help='chat model id served by OPENAI_BASE_URL')
     parser.add_argument('--rule_path', type=str, default=None, help='rule file (default: ./Alfworld/data/ilp_rule_<engine>.txt)')
     parser.add_argument('--max_tokens', type=int, default=256, help='max new tokens per LLM call')
@@ -115,7 +115,7 @@ def main():
     np.random.seed(args.seed)
     random.seed(args.seed)
     pipeline = setup_pipeline(args)
-    if args.procedure in ('general', 'both'):
+    if args.method == 'ours' and args.procedure in ('general', 'both'):
         pipeline.generalize_external_traj()
     if args.procedure in ('adapt', 'both'):
         save_results([run_experiment(args, pipeline)], args)

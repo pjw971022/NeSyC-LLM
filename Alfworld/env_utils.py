@@ -1,6 +1,7 @@
 import os
 import alfworld
 import alfworld.agents.environment
+from Alfworld.baselines import REFLEXION_TRIALS, ReActAgent
 from Alfworld.our_pipeline import Pipeline, load_rules
 from utils import *
 import json
@@ -87,15 +88,15 @@ def run_alfworld(
     hard = pipeline.hard_task
     if hard:
         env.game_files = [f for f in env.game_files if hard['game'] in f]
+    files = sorted(env.game_files)  # the same subset on every machine; resets then cycle over it, once per trial
+    random.Random(seed).shuffle(files)
+    env.game_files = files[:eval_episode_num]
+    eval_episode_num = len(env.game_files)
     env = env.init_env(batch_size=1)
+    agent = None if method == 'ours' else ReActAgent(pipeline.llm, reflexion=method == 'reflexion')
+    results = {}  # game -> (reward, goal condition, plan accuracy) of its latest trial
 
-    # Initialize counters and rewards
-    cnts: List[int] = [0] * 6
-    rs: List[int] = [0] * 6
-    gcs: List[int] = [0] * 6
-    plan_accs: List[int] = [0] * 6
-    raw_r, raw_gc, raw_plan = [], [], []
-    for episode in range(eval_episode_num):
+    for episode in range(eval_episode_num * (REFLEXION_TRIALS if method == 'reflexion' else 1)):
         obs, info = env.reset()
         obs = '\n'.join(obs[0].split('\n\n')[1:])
         name = '/'.join(info['extra.gamefile'][0].split('/')[-3:-1])
@@ -103,6 +104,8 @@ def run_alfworld(
         random.seed(f'{seed}-{name}')  # each episode is reproducible on its own (resume, subsets, replay)
         # if 'trial_T20190909_183724_205399' not in name:
         #     continue
+        if results.get(name, [0])[0]:  # solved in an earlier trial
+            continue
         print("\n" + "=" * 50)
         print(f"Episode {episode + 1}: {name.split('/')[-1]}")
         print("=" * 50)
@@ -111,7 +114,7 @@ def run_alfworld(
         paraphrased_goal = hard['instruction'] if hard else load_paraphrased_instruction(name, 'original')
         if hard:
             missing_paraphrased_goal = paraphrased_goal
-        if pipeline.mode != 'complete':
+        if method == 'ours' and pipeline.mode != 'complete':
             pipeline.rules = load_rules(pipeline.rule_save_path)  # R is reset for every episode
         if not paraphrased_goal:
             print(f"Instruction for task '{name}' not found. Skipping...")
@@ -158,14 +161,22 @@ def run_alfworld(
                                                 target_recep, 
                                                 low_perturb_locations, 
                                                 attributes,
-                                                paraphrased_goal,)
+                                                paraphrased_goal,
+                                                agent)
 
-        # Update statistics
-        update_statistics(raw_r, raw_gc, raw_plan, rs, gcs, plan_accs, cnts, r, gc, plan_acc, name)
-
-        # Clean up and print episode results
+        results[name] = (r, gc, plan_acc)
+        if method == 'reflexion' and not r and episode < eval_episode_num * (REFLEXION_TRIALS - 1):
+            agent.reflect()  # a plan for the next trial of this game
         pipeline.clean()
-        print_episode_results(episode, r, rs, gcs, plan_accs,cnts)
+        print_episode_results(episode, r, *summarize(results)[3:])
+    return summarize(results)
+
+
+def summarize(results):
+    """Per-task-type totals over the latest trial of every game."""
+    raw_r, raw_gc, raw_plan, rs, gcs, plan_accs, cnts = [], [], [], [0] * 6, [0] * 6, [0] * 6, [0] * 6
+    for name, (r, gc, plan_acc) in results.items():
+        update_statistics(raw_r, raw_gc, raw_plan, rs, gcs, plan_accs, cnts, r, gc, plan_acc, name)
     return raw_r, raw_gc, raw_plan, rs, gcs, plan_accs, cnts
 
 
@@ -350,7 +361,7 @@ def load_target_tool(name: str) -> str:
 def run_episode(
     env, method, pipeline: Pipeline, obs: str, name: str,
     dynamics_type: str, target_obj: str, target_recep: str, 
-    low_perturb_locations: List[str], attributes: str, new_instr: str
+    low_perturb_locations: List[str], attributes: str, new_instr: str, agent=None
 ) -> Tuple[int, int]:
     """Algorithm 2 (rule application) on one ALFWorld episode."""
     r = 0
@@ -365,19 +376,22 @@ def run_episode(
     subgoal_tracker = {'open_cnt':0, 'gc': 0, 'gc_prev_commands': set(), 'plan_acc': 0, 'plan_prev_commands': set()}
 
     hard = pipeline.hard_task
+    if agent:
+        agent.start(name, obs)
     while step_num < pipeline.max_steps:
         example = process_observation(obs, cur_traj1)
         if 'goal' in example.keys():
             goal = example['goal']
         
-        if method != 'ours':
-            raise ValueError(f"Invalid method: {method}")
-        answer_sets = pipeline.eval_single_plan(example)
-        model = random.choice(answer_sets) if answer_sets else []
-        predicted_plan = parse_answer_set(model)
-        print(f"\n{'Predicted Plan':=^40}\n{sorted(predicted_plan)}\n{'':=^40}")
-        predicted_plans.append(predicted_plan)
-        action = filter_actions_by_step(predicted_plan, step_num)
+        if agent:
+            action = agent.act()
+        else:
+            answer_sets = pipeline.eval_single_plan(example)
+            model = random.choice(answer_sets) if answer_sets else []
+            predicted_plan = parse_answer_set(model)
+            print(f"\n{'Predicted Plan':=^40}\n{sorted(predicted_plan)}\n{'':=^40}")
+            predicted_plans.append(predicted_plan)
+            action = filter_actions_by_step(predicted_plan, step_num)
         
         action_info = {
             'command': action,
@@ -410,7 +424,9 @@ def run_episode(
         
         cur_traj1 = f'\nAct {step_num}: {action}\nObs {step_num+1}: {obs}'
         print(f"\n{'Observation':=^40}\n{cur_traj1}\n{'':=^40}")
-        if action != 'do nothing' and not error_message:  # error handler (Algorithm 2, lines 9-16)
+        if agent:
+            agent.observe(action, obs + (f'\nError:{error_message}' if error_message else ''))
+        elif action != 'do nothing' and not error_message:  # error handler (Algorithm 2, lines 9-16)
             ok = 'Nothing happens' not in obs
             pipeline.remember(model, step_num, ok)
             if not ok:

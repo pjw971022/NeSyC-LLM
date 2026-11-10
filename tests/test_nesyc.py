@@ -2,6 +2,7 @@
 import json
 
 from Alfworld import llm_utils
+from Alfworld.baselines import ReActAgent, retrieve
 from Alfworld import our_pipeline as op
 from Alfworld.data.base.base_program import BASE_ASP_PROGRAM
 from Alfworld.our_pipeline import ALPHA, Pipeline, extract_rules, interpret, load_demos
@@ -129,3 +130,33 @@ def test_llm_replays_cached_answers_without_calling_the_api(tmp_path, monkeypatc
     assert llm_utils.llm('ping', 'some-model') == 'pong'
     monkeypatch.setattr(llm_utils, '_request', lambda *a: 1 / 0)
     assert llm_utils.llm('ping', 'some-model') == 'pong'
+
+
+def test_retrieve_returns_the_three_closest_demonstrations_with_their_outcome():
+    demos = retrieve('Your task is to: warm up a bowl of soup in the microwave.')
+    assert len(demos) == 3 and 'soup' in demos[0] and all(d.endswith(('(success)', '(fail)')) for d in demos)
+
+
+def test_react_thoughts_do_not_cost_an_environment_step():
+    answers = iter(['think: the mug is on the desk.', '> go to desk 1\nOn the desk 1, you see a mug 1.'])
+    agent = ReActAgent(lambda prompt: next(answers))
+    agent.start('game', 'You are in a room.\nYour task is to: put a mug in the sink.')
+    assert agent.act() == 'go to desk 1'
+    agent.observe('go to desk 1', 'On the desk 1, you see a mug 1.')
+    assert agent.prompt.endswith('> think: the mug is on the desk.\nOK.\n> go to desk 1\nOn the desk 1, you see a mug 1.\n>')
+
+
+def test_reflexion_carries_the_plan_of_a_failed_trial_into_the_next_trial_of_the_same_game():
+    agent = ReActAgent(lambda prompt: 'Plan: open the fridge first.', reflexion=True)
+    agent.start('game-1', 'Your task is to: cool a mug.')
+    agent.reflect()
+    agent.start('game-1', 'Your task is to: cool a mug.')
+    assert 'Trial 0: Plan: open the fridge first.' in agent.prompt
+    agent.start('game-2', 'Your task is to: cool a mug.')
+    assert 'Your memory' not in agent.prompt
+
+
+def test_react_never_sends_a_thought_to_the_environment():
+    agent = ReActAgent(lambda prompt: 'Think: No mug here, stop and check drawer 1.')
+    agent.start('game', 'Your task is to: put a mug in the sink.')
+    assert agent.act() == 'look' and agent.prompt.count('OK.') == 3

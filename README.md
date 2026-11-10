@@ -42,6 +42,7 @@ ENGINE=<model id> bash Alfworld/script/static.sh         # learn rules, then 123
 ENGINE=<model id> bash Alfworld/script/low_dynamics.sh
 ENGINE=<model id> bash Alfworld/script/high_dynamics.sh
 ENGINE=<model id> bash Alfworld/script/hard.sh           # one very hard task, see below
+ENGINE=<model id> bash Alfworld/script/static.sh --method react       # baselines: react | reflexion
 pytest                                                   # LLM-free checks
 ```
 
@@ -55,11 +56,14 @@ Stage 1 writes the rules to `Alfworld/data/ilp_rule_<model id>.txt` (`/` and `:`
 | Algorithm 1, rule reformulation | `Pipeline.reformulate` in `Alfworld/our_pipeline.py`: the LLM proposes constraints per batch of positive/negative examples (`gen_hypotheses`), clingo scores them with HI (Eq. 9, `interpret`) and returns feedback, for `ITER_MAX = 3` rounds |
 | Algorithm 2, rule application | `run_episode` in `Alfworld/env_utils.py`: plan with clingo, act, store the transition in working memory (`remember`); a failed action re-enters Algorithm 1 (`refine`) |
 | Demonstrations | `Alfworld/data/demo/total_external_data.json`, the 12 action types in `TARGET_PREDICATES` (31 examples) |
+| Baselines (Appendix C) | `Alfworld/baselines.py`: ReAct, and Reflexion = ReAct + a plan written after each failed trial. No task-specific few-shot examples: the prompt gets the top-3 demonstrations and the same object facts NeSyC plans with |
 
 Choices the paper leaves open: α = 0.5 and λ = 0.3 in Eq. 9; a hypothesis is one constraint and the interpreter
 keeps a subset of the proposed ones chosen greedily for HI; the background knowledge used for scoring is the static facts of
 each example; learned rules are reset at the start of every episode; a demonstration's `fact_set` is used as its
-semantic parse (the LLM parser runs only if it is missing).
+semantic parse (the LLM parser runs only if it is missing). Baselines: demonstrations are retrieved by TF-IDF (the
+original sentence-embedding retriever is gone), thoughts do not use up environment steps, and Reflexion gets 3
+trials per game with success in any of them counted. The last two favour the baselines.
 
 ## Results
 
@@ -70,16 +74,31 @@ semantic parse (the LLM parser runs only if it is missing).
 | Hard task, no hypotheses (ablation, hand-written goal) | none | fails |
 | Low / high dynamics | — | not run with an LLM; 10-game smoke runs with a scripted stand-in only (9/10, 10/10) |
 
+Against the baselines, same LLM, same 20 games (`--eval_episode_num 20`) and the hard task:
+
+| | Success (20 games) | Actions / game | LLM calls / game | Prompt text / game | Hard task |
+|---|---|---|---|---|---|
+| NeSyC | 20 / 20 | 5.6 | 1 (+24 once, to learn the rules) | 2.2 kB | solved: 22 actions, 2 failed, 5 LLM calls |
+| ReAct | 20 / 20 | 5.8 | 6.8 | 26.9 kB | solved: 19 actions, 1 failed, 22 LLM calls |
+| Reflexion (3 trials) | 20 / 20 | 5.8 | 6.8 | 26.9 kB | same as ReAct: nothing failed, so it never reflected |
+
+With this LLM the baselines are as successful as NeSyC, and ReAct needed fewer actions on the hard task. What
+NeSyC saves is LLM usage: one call per game instead of one per step. The paper's gap in success rate
+(ReAct 35.8 %, Reflexion 39.0 %, NeSyC 82.9 % with gpt-4o) does not appear here; 20 games and one LLM are too few
+to say more.
+
 Read these numbers with the following in mind:
 
 - **Not comparable to Table 1.** Different LLM, re-implemented algorithms, repaired demonstrations and planner.
 - **How Claude was called.** No API key was available, so Claude Code sub-agents answered the recorded prompts in
   batches. That is not a raw API call: temperature and the 256-token cap were not enforced (the longest answer is
-  28 words) and an agent saw the other prompts of its batch. All 149 prompts and answers are in
+  28 words) and an agent saw the other prompts of its batch (for the baselines: five games in a row, so it could
+  carry knowledge from one game to the next). All 306 prompts and answers are in
   `Alfworld/data/llm_cache_claude-fable-5-2.json`; the rules it produced are in
   `Alfworld/data/ilp_rule_claude-fable-5-2.txt`.
 - **Replay without a key**, from the transcript (identical numbers, no API call):
   `LLM_CACHE=Alfworld/data/llm_cache_claude-fable-5-2.json ENGINE=claude-fable-5-2 bash Alfworld/script/static.sh`
+  (baselines: add `--method react --eval_episode_num 20`)
 - **Refinement was not needed in the static run.** Stage 1 produced a complete rule set, so no action failed;
   Algorithm 2's re-entry into Algorithm 1 is exercised by the hard task and the tests only.
 - **The one failure** is a goal parse: "Refrigerate the cleaned lettuce." became *cooled* instead of *in the fridge*.
