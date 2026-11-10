@@ -28,10 +28,11 @@ def load_or_create_df(file_path):
 def setup_pipeline(args):
     pipeline = Pipeline(vars(args))
     if args.hard:
-        with open('./Alfworld/data/hard_task.json') as f:
-            pipeline.hard_task = json.load(f)
-        pipeline.max_steps = pipeline.hard_task['max_steps']
-        args.eval_episode_num = 1
+        with open(args.hard) as f:
+            tasks = json.load(f)
+        pipeline.hard_tasks = tasks if isinstance(tasks, list) else [tasks]
+        pipeline.max_steps = pipeline.hard_tasks[0]['max_steps']
+        args.eval_episode_num = len(pipeline.hard_tasks)
     pipeline.asp_program = BASE_ASP_PROGRAM.replace('{max_step}', str(pipeline.max_steps))
     pipeline.clingo_seed = args.seed
     engine = re.sub(r'[^\w.-]', '_', args.engine)  # model ids may contain '/' or ':'
@@ -99,7 +100,8 @@ def main():
     parser.add_argument('--grounding', action='store_true', help='whether to use grounding')
     parser.add_argument('--cot', action='store_true', help='Chain of thought')
     parser.add_argument('--mode', type=str, default='base', help='base | noisy | incomplete')
-    parser.add_argument('--hard', action='store_true', help='run the single hard task (Alfworld/data/hard_task.json)')
+    parser.add_argument('--hard', nargs='?', const='./Alfworld/data/hard_task.json', help='run the hard task(s) of this file')
+    parser.add_argument('--continual', action='store_true', help='keep the rules learned in one episode for the next ones')
     parser.add_argument('--asp', action='store_true', help='use ASP solver')
     parser.add_argument('--ilp', action='store_true', help='use ILP rules')
     args = parser.parse_args()

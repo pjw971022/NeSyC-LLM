@@ -3,6 +3,7 @@
 Credentials are read from the environment only (OPENAI_API_KEY, OPENAI_BASE_URL) - never write a key into this repo.
 Answers are cached on disk, so an interrupted run resumes and a finished run replays without spending quota.
 """
+import gzip
 import hashlib
 import json
 import os
@@ -21,12 +22,13 @@ def _request(prompt, model_name, temperature, max_tokens):
 def llm(prompt, model_name, temperature=0.0, max_tokens=256):
     key = hashlib.sha256(json.dumps([model_name, temperature, max_tokens, prompt]).encode()).hexdigest()
     cache = {}
+    opener = gzip.open if CACHE_PATH.endswith('.gz') else open
     if os.path.exists(CACHE_PATH):
-        with open(CACHE_PATH) as f:
+        with opener(CACHE_PATH, 'rt') as f:
             cache = json.load(f)
     if key not in cache:
         cache[key] = {'prompt': prompt, 'response': _request(prompt, model_name, temperature, max_tokens)}
-        with open(CACHE_PATH + '.tmp', 'w') as f:  # lean: rewrites the whole file per new answer; sqlite past ~10k calls
+        with opener(CACHE_PATH + '.tmp', 'wt') as f:  # lean: rewrites the whole file per new answer; sqlite past ~10k calls
             json.dump(cache, f, indent=1)
         os.replace(CACHE_PATH + '.tmp', CACHE_PATH)  # atomic, so an interrupt cannot truncate the cache
     return cache[key]['response']

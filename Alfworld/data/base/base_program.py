@@ -167,6 +167,9 @@ at(O, L, T+1) :- action(put_down(O, L), T).
 goal(T) :- goal(T-1), step(T), T > 0.
 :- not goal(max_steps).
 
+% From the current step on a plan has no idle step before a later action (earlier steps may have failed).
+:- now(N), step(T), T >= N, not action(_, T), action(_, T2), T2 > T.
+
 % Minimize the number of actions and steps to reach the goal
 #minimize { 1@2,T : action(_, T) }.
 #minimize { T@1 : goal(T), not goal(T-1) }.

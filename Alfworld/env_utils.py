@@ -85,9 +85,8 @@ def run_alfworld(
     config['env']['dynamics_type'] = dynamics_type
     config['general']['random_seed'] = seed
     env = getattr(alfworld.agents.environment, config["env"]["type"])(config, train_eval=split)
-    hard = pipeline.hard_task
-    if hard:
-        env.game_files = [f for f in env.game_files if hard['game'] in f]
+    if pipeline.hard_tasks:
+        env.game_files = [f for f in env.game_files if any(task['game'] in f for task in pipeline.hard_tasks)]
     files = sorted(env.game_files)  # the same subset on every machine; resets then cycle over it, once per trial
     random.Random(seed).shuffle(files)
     env.game_files = files[:eval_episode_num]
@@ -101,6 +100,7 @@ def run_alfworld(
         obs = '\n'.join(obs[0].split('\n\n')[1:])
         name = '/'.join(info['extra.gamefile'][0].split('/')[-3:-1])
         task_type = name.split('-')[0]
+        hard = pipeline.hard_task = next((task for task in pipeline.hard_tasks if task['game'] == name), None)
         random.seed(f'{seed}-{name}')  # each episode is reproducible on its own (resume, subsets, replay)
         # if 'trial_T20190909_183724_205399' not in name:
         #     continue
@@ -114,7 +114,7 @@ def run_alfworld(
         paraphrased_goal = hard['instruction'] if hard else load_paraphrased_instruction(name, 'original')
         if hard:
             missing_paraphrased_goal = paraphrased_goal
-        if method == 'ours' and pipeline.mode != 'complete':
+        if method == 'ours' and pipeline.mode != 'complete' and not (pipeline.continual and results):
             pipeline.rules = load_rules(pipeline.rule_save_path)  # R is reset for every episode
         if not paraphrased_goal:
             print(f"Instruction for task '{name}' not found. Skipping...")
@@ -386,7 +386,7 @@ def run_episode(
         if agent:
             action = agent.act()
         else:
-            answer_sets = pipeline.eval_single_plan(example)
+            answer_sets = pipeline.eval_single_plan(example, step_num)
             model = random.choice(answer_sets) if answer_sets else []
             predicted_plan = parse_answer_set(model)
             print(f"\n{'Predicted Plan':=^40}\n{sorted(predicted_plan)}\n{'':=^40}")
@@ -402,6 +402,7 @@ def run_episode(
             'db_update_num': db_update_num,
             'instr_update_num': instr_update_num,
             'needs_open': hard['needs_open'] if hard else [],
+            'needs_clean': hard.get('needs_clean', []) if hard else [],
         }
         obs, r, done, info = env.step([action_info])
         obs, r, done = process_ob(obs[0]), info['won'][0], done[0]

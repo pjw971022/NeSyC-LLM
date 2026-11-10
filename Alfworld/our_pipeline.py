@@ -83,13 +83,17 @@ def interpret(candidates, E_T, E_M):
     Every candidate is one integrity constraint, so an example is a model of BK and H unless one of the rules fires on
     it (BK is the static facts each example carries). H is a subset of the candidates chosen greedily for HI (Eq. 9):
     add every rule that does not lower the score, then drop rules while that raises it; on equal HI the subset that
-    keeps more positive examples wins. A rule that fires on an action which already succeeded in this episode is
-    never kept: that action is a fact of the planning program, so the rule would leave no plan at all.
+    keeps more positive examples wins. Two kinds of rule are never kept, because a rule that forbids an admissible
+    action can leave the planner with no plan at all: one that fires on an action which already succeeded in the
+    environment, and one that fires on a positive demonstration without also excluding a failure seen in the
+    environment (only current evidence may override a demonstration).
     """
     E = E_T + E_M
     out = {r: {i for i, e in enumerate(E) if not solve(e['facts'] + r)} for r in candidates}
-    done = {i for i, e in enumerate(E) if e['positive'] and 'step' in e}
-    usable = [r for r in candidates if not out[r] & done]
+    positives = {i for i, e in enumerate(E) if e['positive']}
+    done = {i for i in positives if 'step' in E[i]}
+    failures = {i for i, e in enumerate(E) if not e['positive'] and 'step' in e}
+    usable = [r for r in candidates if not out[r] & done and (not out[r] & positives or out[r] & failures)]
 
     def score(rules):
         excluded = set().union(*(out[r] for r in rules))
@@ -140,7 +144,9 @@ class Pipeline:
         self.demos = []        # experience set T
         self.experience = []   # working memory already merged into T during this episode
         self.memory = []       # working memory M
-        self.hard_task = None  # the task of Alfworld/data/hard_task.json when run with --hard
+        self.hard_tasks = []   # tasks of the file given with --hard
+        self.hard_task = None  # the one being run
+        self.continual = False  # keep the rules learned in one episode for the next ones
         self.max_steps = MAX_STEP_NUM
         self.prompt = {}
         self.engine = ''
@@ -153,7 +159,8 @@ class Pipeline:
 
     def clean(self):
         self.init_state = self.dynamic_facts = self.goal_state = ''
-        self.experience, self.memory = [], []
+        self.experience = self.experience + self.memory if self.continual else []  # T keeps growing when continual
+        self.memory = []
 
     def load_prompt(self, kind_to_path):
         for kind, path in kind_to_path.items():
@@ -247,11 +254,11 @@ class Pipeline:
         ctl.solve(on_model=lambda m: models.append((m.optimality_proven, [str(atom) for atom in m.symbols(atoms=True)])))
         return [atoms for proven, atoms in models if proven] or [atoms for _, atoms in models[-1:]]
 
-    def eval_single_plan(self, example):
+    def eval_single_plan(self, example, step=0):
         if 'goal' in example:
             self.goal_state = self.gen_goal_state_response(example['goal'])
             print(f"\n{'goal':=^40}\n{self.goal_state}\n{'':=^40}")
         if 'adapt_fact' in example:
             self.dynamic_facts += '\n' + '\n'.join(parse_act_obs(example['adapt_fact']))
         return self.gen_answer_set('\n'.join(
-            [self.asp_program, self.init_state, self.dynamic_facts, self.goal_state, *self.rules]))
+            [self.asp_program, self.init_state, self.dynamic_facts, self.goal_state, f'now({step}).', *self.rules]))

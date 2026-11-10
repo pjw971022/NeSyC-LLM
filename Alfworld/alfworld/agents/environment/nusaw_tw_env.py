@@ -36,11 +36,12 @@ class CustomRewardWrapper(textworld.core.Wrapper):
         super().__init__(env)
         self.goal = ''
         self.opened = set()  # receptacles the agent has opened in this episode
+        self.cleaned = set()  # objects it has cleaned
         # self.random_db_update_step = random.randint(1, 3)
         # self.random_instr_update_step = random.randint(1, 3)
 
     def reset(self):
-        self.opened = set()
+        self.opened, self.cleaned = set(), set()
         return super().reset()
 
     def step(self, action_info: dict):
@@ -51,16 +52,25 @@ class CustomRewardWrapper(textworld.core.Wrapper):
                 if random.random() < 0.3:
                     action_info['command'] = 'moving error'
         
-        # Hard task: a precondition the demonstrations never show - these verbs need their appliance door open.
-        if (action_info['command'].split()[0] in action_info.get('needs_open', [])
-                and action_info['command'].split(' with ')[-1] not in self.opened):
-            action_info['command'] = 'door is closed'  # not a command, so nothing happens
+        # Hard tasks: preconditions the demonstrations never show. The listed verbs need the appliance door open
+        # (needs_open) or an object that was cleaned earlier in the episode (needs_clean).
+        verb, _, rest = action_info['command'].partition(' ')
+        obj, _, recep = rest.partition(' with ')
+        if ((verb in action_info.get('needs_open', []) and recep not in self.opened)
+                or (verb in action_info.get('needs_clean', []) and obj not in self.cleaned)):
+            action_info['command'] = 'house rule'  # not a command, so nothing happens
 
         ##### Postprocessing #####
         game_state, score, done = super().step(action_info['command'])
-        door = re.match(r'You (open|close) the (\w+ \d+)', game_state['feedback'])
-        if door:
-            (self.opened.add if door.group(1) == 'open' else self.opened.discard)(door.group(2))
+        happened = re.match(r'You (open|close|clean) the (\w+ \d+)', game_state['feedback'])
+        if happened:
+            what, name = happened.groups()
+            if what == 'clean':
+                self.cleaned.add(name)
+            elif what == 'open':
+                self.opened.add(name)
+            else:
+                self.opened.discard(name)
         if 'No ' in action_info['command']:
             done = True
         if 'stop' in action_info['command']:

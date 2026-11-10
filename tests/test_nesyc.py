@@ -160,3 +160,12 @@ def test_react_never_sends_a_thought_to_the_environment():
     agent = ReActAgent(lambda prompt: 'Think: No mug here, stop and check drawer 1.')
     agent.start('game', 'Your task is to: put a mug in the sink.')
     assert agent.act() == 'look' and agent.prompt.count('OK.') == 3
+
+
+def test_a_demonstration_is_only_overridden_by_a_failure_in_the_current_environment():
+    p = pipeline()
+    washed = ':- action(heat(O, L), T), not is_cleaned(O, T).'  # also excludes the demo that heats an unwashed bowl
+    assert interpret([washed], p.demos, [])[0] == []
+    p.remember(['robot_at(microwave_1,3)', 'holding(potato_1,3)', 'is_heater(microwave_1)',
+                'action(heat(potato_1,microwave_1),3)'], 3, ok=False)
+    assert interpret([washed], p.demos, p.memory)[0] == [washed]
