@@ -111,7 +111,7 @@ BASE_ASP_PROGRAM = '''
 step(0..max_steps).
 
 % States
-{at(Object, Location, T) : location(Location)} 1 :- object(Object), step(T).
+% at/3 is derived only (facts, inertia, put_down): unknown locations are never guessed.
 {robot_at(Location, T) : location(Location)} = 1 :- step(T).
 {holding(Object, T) : object(Object)} 1 :- step(T).
 {is_heated(Object, T) : heatable(Object)} :- step(T).
@@ -155,11 +155,9 @@ at(O, L, T+1) :- action(put_down(O, L), T).
 
 % Basic Action constraints
 :- holding(O, T), not holding(O, T-1), not action(pick_up(O, _), T-1).
-:- at(O, L1, T), at(O, L2, T+1), L1 != L2, not action(pick_up(O, L1), T).
 :- is_heated(O, T+1), not is_heated(O, T), not action(heat(O, _), T).
 :- is_cooled(O, T+1), not is_cooled(O, T), not action(cool(O, _), T).
 :- is_cleaned(O, T+1), not is_cleaned(O, T), not action(clean(O, _), T).
-:- holding(O, T), at(O, _, T).
 :- robot_at(L1, T), robot_at(L2, T+1), L1 != L2, not action(go_to(L2), T).
 :- is_open(L, T+1), not is_open(L, T), not action(open(L), T).
 :- is_looked(O1, O2, T+1), not is_looked(O1, O2, T), not action(use(O2), T).

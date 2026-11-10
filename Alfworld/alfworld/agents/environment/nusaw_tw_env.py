@@ -30,12 +30,18 @@ def calculate_matching_degree(predict, expert_plan):
     return matching_count / len(expert_plan)
 
 import random
+import re
 class CustomRewardWrapper(textworld.core.Wrapper):
     def __init__(self, env):
         super().__init__(env)
         self.goal = ''
+        self.opened = set()  # receptacles the agent has opened in this episode
         # self.random_db_update_step = random.randint(1, 3)
         # self.random_instr_update_step = random.randint(1, 3)
+
+    def reset(self):
+        self.opened = set()
+        return super().reset()
 
     def step(self, action_info: dict):
         ##### Preprocessing #####
@@ -45,8 +51,16 @@ class CustomRewardWrapper(textworld.core.Wrapper):
                 if random.random() < 0.3:
                     action_info['command'] = 'moving error'
         
+        # Hard task: a precondition the demonstrations never show - these verbs need their appliance door open.
+        if (action_info['command'].split()[0] in action_info.get('needs_open', [])
+                and action_info['command'].split(' with ')[-1] not in self.opened):
+            action_info['command'] = 'door is closed'  # not a command, so nothing happens
+
         ##### Postprocessing #####
         game_state, score, done = super().step(action_info['command'])
+        door = re.match(r'You (open|close) the (\w+ \d+)', game_state['feedback'])
+        if door:
+            (self.opened.add if door.group(1) == 'open' else self.opened.discard)(door.group(2))
         if 'No ' in action_info['command']:
             done = True
         if 'stop' in action_info['command']:
@@ -66,12 +80,12 @@ class CustomRewardWrapper(textworld.core.Wrapper):
                 game_state['feedback'] += '\nError: The robot has encountered an error while moving.'
                 
             if step_num == action_info['db_update_num']:
-                locs = action_info['low_perturb_locations'].replace('0', f'{step_num}')
+                locs = re.sub(r', 0\)\.', f', {step_num}).', action_info['low_perturb_locations'])  # only the time argument
                 game_state['feedback'] += f'\nDatabase update:\n{locs}'
 
         elif action_info['dynamics_type'] == 'low_non_stationary':
             if step_num == action_info['db_update_num']:
-                locs = action_info['low_perturb_locations'].replace('0', f'{step_num}')
+                locs = re.sub(r', 0\)\.', f', {step_num}).', action_info['low_perturb_locations'])  # only the time argument
                 game_state['feedback'] += f'\nDatabase update:\n{locs}'
 
         return game_state, score, done

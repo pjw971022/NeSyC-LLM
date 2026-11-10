@@ -1,8 +1,7 @@
 import os
 import alfworld
 import alfworld.agents.environment
-from Alfworld.our_pipeline import Pipeline, load_generalized_rules
-from Alfworld.llm_utils import google_llm
+from Alfworld.our_pipeline import Pipeline, load_rules
 from utils import *
 import json
 import datetime
@@ -34,6 +33,7 @@ def save_error_log(dynamics_type, name, goal, goal_state, adapted_rules, predict
         "timestamp": datetime.datetime.now().isoformat()
     }
     file_path = f"./Alfworld/data/error_log/{dynamics_type}_error_analysis.json"
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
     if not os.path.exists(file_path):
         existing_data = []
     else:
@@ -46,6 +46,15 @@ def save_error_log(dynamics_type, name, goal, goal_state, adapted_rules, predict
         json.dump(existing_data, f, indent=4)
 
     print(f"Error log saved to {file_path}")
+
+def hard_goal_met(facts, goal) -> bool:
+    """Success test of the hard task on the simulator's own facts (TextWorld only knows the original game's goal)."""
+    facts = {(fact.name, tuple(arg.name for arg in fact.arguments)) for fact in facts}
+    placed = all(any(name == 'inreceptacle' and args[0].startswith(obj) and args[1].startswith(recep)
+                     and all((state, args[:1]) in facts for state in states) for name, args in facts)
+                 for obj, recep, states in goal['placed'])
+    return placed and not any(name == 'opened' and args[0].startswith(tuple(goal['closed'])) for name, args in facts)
+
 
 def run_alfworld(
     method: str,
@@ -75,6 +84,9 @@ def run_alfworld(
     config['env']['dynamics_type'] = dynamics_type
     config['general']['random_seed'] = seed
     env = getattr(alfworld.agents.environment, config["env"]["type"])(config, train_eval=split)
+    hard = pipeline.hard_task
+    if hard:
+        env.game_files = [f for f in env.game_files if hard['game'] in f]
     env = env.init_env(batch_size=1)
 
     # Initialize counters and rewards
@@ -88,6 +100,7 @@ def run_alfworld(
         obs = '\n'.join(obs[0].split('\n\n')[1:])
         name = '/'.join(info['extra.gamefile'][0].split('/')[-3:-1])
         task_type = name.split('-')[0]
+        random.seed(f'{seed}-{name}')  # each episode is reproducible on its own (resume, subsets, replay)
         # if 'trial_T20190909_183724_205399' not in name:
         #     continue
         print("\n" + "=" * 50)
@@ -95,10 +108,11 @@ def run_alfworld(
         print("=" * 50)
 
         missing_paraphrased_goal = load_paraphrased_instruction(name, 'missing')
-        paraphrased_goal = load_paraphrased_instruction(name, 'original')
+        paraphrased_goal = hard['instruction'] if hard else load_paraphrased_instruction(name, 'original')
+        if hard:
+            missing_paraphrased_goal = paraphrased_goal
         if pipeline.mode != 'complete':
-            generalized_rules = load_generalized_rules(pipeline.rule_save_path)
-            pipeline.adapted_rules = generalized_rules
+            pipeline.rules = load_rules(pipeline.rule_save_path)  # R is reset for every episode
         if not paraphrased_goal:
             print(f"Instruction for task '{name}' not found. Skipping...")
             continue
@@ -110,6 +124,8 @@ def run_alfworld(
         
         # Process target objects and receptacles
         target_obj, target_recep, target_obj_receps = process_targets(name, info)
+        if hard:
+            target_obj_receps += hard['targets']
 
         # Process facts
         facts_list = process_facts(dynamics_type, 
@@ -126,9 +142,8 @@ def run_alfworld(
 
         # Initialize pipeline state
         if method == 'ours' and pipeline.asp and pipeline.ilp:
-            pipeline.init_state = high_perturb_locations + attributes
-            predicates_str = parse_predicates(attributes)
-            pipeline.prompt['goal'] = pipeline.prompt['goal'].replace('XXXXX', predicates_str)
+            pipeline.init_state = high_perturb_locations + '\n' + attributes
+            pipeline.predicates = parse_predicates(attributes)
         else:
             obs += '\nObject Information:\n' + high_perturb_locations + attributes
             obs = obs.replace('_',' ')
@@ -337,42 +352,32 @@ def run_episode(
     dynamics_type: str, target_obj: str, target_recep: str, 
     low_perturb_locations: List[str], attributes: str, new_instr: str
 ) -> Tuple[int, int]:
-    """Run a single episode of the ALFWorld environment."""
-    retrieval_engine =  RetrievalEngine()
+    """Algorithm 2 (rule application) on one ALFWorld episode."""
     r = 0
-    prev_obs = obs
     step_num = 0
     cur_traj1 = ''
-    cur_traj2 = ''
     total_traj = f'Obs 0: {obs}\n'
     error_message = ''
-    predicted_plan = ''
     predicted_plans = []
     goal = ''
-    demo = ''
     db_update_num = random.randint(2, 6)
     instr_update_num = random.randint(1, 5)
     subgoal_tracker = {'open_cnt':0, 'gc': 0, 'gc_prev_commands': set(), 'plan_acc': 0, 'plan_prev_commands': set()}
-    pipeline.set_task(name)
 
-    while step_num < MAX_STEP_NUM:
-        if method != 'ours':
-            demo = retrieval_engine.search_demo(goal + obs)
-
-        example = process_observation(obs, demo, error_message, cur_traj1, cur_traj2)
+    hard = pipeline.hard_task
+    while step_num < pipeline.max_steps:
+        example = process_observation(obs, cur_traj1)
         if 'goal' in example.keys():
             goal = example['goal']
         
-        if method == 'ours':
-            answer_sets = pipeline.eval_single_plan(example, opt=True)
-            if pipeline.asp:
-                predicted_plan = parse_predicted_plan(answer_sets)
-                predicted_plans.append(predicted_plan)
-                action = filter_actions_by_step(predicted_plan, step_num)
-            else:
-                action = answer_sets[0]
-        else:
+        if method != 'ours':
             raise ValueError(f"Invalid method: {method}")
+        answer_sets = pipeline.eval_single_plan(example)
+        model = random.choice(answer_sets) if answer_sets else []
+        predicted_plan = parse_answer_set(model)
+        print(f"\n{'Predicted Plan':=^40}\n{sorted(predicted_plan)}\n{'':=^40}")
+        predicted_plans.append(predicted_plan)
+        action = filter_actions_by_step(predicted_plan, step_num)
         
         action_info = {
             'command': action,
@@ -382,9 +387,12 @@ def run_episode(
             'step_num': step_num,
             'db_update_num': db_update_num,
             'instr_update_num': instr_update_num,
+            'needs_open': hard['needs_open'] if hard else [],
         }
         obs, r, done, info = env.step([action_info])
         obs, r, done = process_ob(obs[0]), info['won'][0], done[0]
+        if hard:
+            r = done = hard_goal_met(info['facts'][0], hard['goal'])
         total_traj += f'\nAct {step_num}: {action}\nObs {step_num+1}: {obs}'
         
         if '\nDatabase update:' in obs:
@@ -400,10 +408,13 @@ def run_episode(
         if error_message:
             print(f"\n{'Error':=^40}\n{error_message}\n{'':=^40}")
         
-        if method == 'ours':
-            cur_traj1 = f'\nAct {step_num}: {action}\nObs {step_num+1}: {obs}'
-            cur_traj2 = f'Obs {step_num}: {prev_obs}\nAct {step_num}: {action}\nObs {step_num+1}: {obs}'
-            print(f"\n{'Observation':=^40}\n{cur_traj1}\n{'':=^40}")
+        cur_traj1 = f'\nAct {step_num}: {action}\nObs {step_num+1}: {obs}'
+        print(f"\n{'Observation':=^40}\n{cur_traj1}\n{'':=^40}")
+        if action != 'do nothing' and not error_message:  # error handler (Algorithm 2, lines 9-16)
+            ok = 'Nothing happens' not in obs
+            pipeline.remember(model, step_num, ok)
+            if not ok:
+                pipeline.refine()
 
         result_info = {
             'command': action,
@@ -418,7 +429,6 @@ def run_episode(
         if done:
             break
 
-        prev_obs = obs
         step_num += 1
 
     if r == 0:
@@ -427,12 +437,14 @@ def run_episode(
                         name, 
                         goal, 
                         pipeline.goal_state, 
-                        pipeline.adapted_rules,
+                        pipeline.rules,
                         predicted_plans,
                         total_traj)
     task = name.split('-')[0]
     gc =  subgoal_tracker['gc'] / (SUB_GOAL_NUM[task])
     plan_acc = subgoal_tracker['plan_acc'] / (PLAN_ACC_NUM[task] + subgoal_tracker['open_cnt'])
+    if hard:  # the sub-goal trackers follow the original game, not the hard task
+        gc = plan_acc = float(r)
     if gc > 1:
         gc = 1
     if plan_acc > 1:
@@ -441,10 +453,9 @@ def run_episode(
         
     return r, gc, plan_acc, step_num
 
-def process_observation(obs: str, demo:str, error_message:str, cur_traj1: str, cur_traj2: str) -> dict:
+def process_observation(obs: str, cur_traj1: str) -> dict:
     """Process the observation and return an example dictionary."""
     example = {}
-    example['demo'] = demo
     obj_info = None
     if 'Object Information:' in obs:
         obj_info = obs.split('Object Information:')[1]
@@ -468,11 +479,7 @@ def process_observation(obs: str, demo:str, error_message:str, cur_traj1: str, c
         example['obs'] = obs
 
     if cur_traj1:
-        if 'Nothing' in obs and '' == error_message and 'do nothing' not in cur_traj1:
-            example['adapt_rule'] = (cur_traj1, cur_traj2) # Rule refinement
-            example['adapt_fact'] = cur_traj1
-        else:
-            example['adapt_fact'] = cur_traj1
+        example['adapt_fact'] = cur_traj1
 
     return example
 
@@ -529,7 +536,3 @@ def print_episode_results(episode: int, r: int, rs: List[int], gcs : List[int], 
     print(f"Average GC: {sum(gcs) / sum(cnts):.4f}")
     print(f"Average Plan Acc: {sum(plan_accs) / sum(cnts):.4f}")
     print('-' * 70 + '\n')
-
-if __name__ == "__main__":
-    pipeline = Pipeline()  # Assuming Pipeline is imported and initialized correctly
-    _ = run_alfworld(pipeline)

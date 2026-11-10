@@ -7,7 +7,6 @@ import random
 from typing import List, Tuple, Dict, Any
 ALFWORLD_DATA_PATH = os.path.expanduser("~/.cache/alfworld")
 CONFIG_FILE = './Alfworld/base_config.yaml'
-EVAL_SET_NUM = 1
 MAX_STEP_NUM = 15
 PREFIXES = {
     'pick_and_place': 'put',
@@ -52,13 +51,6 @@ def check_target_in_arguments(data: Any, target_obj: str, target_recep: str, tar
     return any(target in arg.name for target in targets for arg in data.arguments[:2])
 
 
-def parse_location_info(info: str) -> Tuple[str, str, str]:
-    match = re.match(r"at\((\w+),\s*(\w+),\s*(\d+)\)\.", info.strip())
-    if match:
-        return match.groups()
-    return None, None, None
-
-
 def perturb_locations(locations: List[str], dynamics_type:str, perturb_prob: float = 0.3, mode:str = 'base') -> List[str]:
     pattern = r"at\((\w+),\s*(\w+),\s*(\d+)\)"
     extracted = []
@@ -90,9 +82,9 @@ def perturb_locations(locations: List[str], dynamics_type:str, perturb_prob: flo
             if random.random() < perturb_prob and len(unique_locs) > 1:
                 # Choose a random location different from the current one
                 new_loc = random.choice([l for l in unique_locs if l != loc])
-                high_perturbed_locations.append(f"at({obj}, {new_loc}, {time})")
+                high_perturbed_locations.append(f"at({obj}, {new_loc}, {time}).")
             else:
-                high_perturbed_locations.append(f"at({obj}, {loc}, {time})")
+                high_perturbed_locations.append(f"at({obj}, {loc}, {time}).")
         
         for obj, loc, time in zip(objects, locs, times):
             
@@ -110,16 +102,6 @@ def perturb_locations(locations: List[str], dynamics_type:str, perturb_prob: flo
 
     return high_perturbed_locations, low_perturbed_locations
 
-
-def filter_contradictory_locations(location_info: List[str]) -> List[str]:
-    object_locations: Dict[str, str] = {}
-    
-    for info in reversed(location_info):
-        obj, location, time = parse_location_info(info)
-        if obj and obj not in object_locations:
-            object_locations[obj] = info
-    
-    return list(object_locations.values())
 
 def process_facts(dynamics_type:str, 
                   perturb:float, 
@@ -168,7 +150,6 @@ def process_facts(dynamics_type:str,
             object_type = d0.split('_')[0]
             attributes.append(f'is_{object_type}({d0}).')
         
-    locations = filter_contradictory_locations(locations)
     locations = sorted(map(str, locations))
     attributes = sorted(map(str, attributes))
     attributes = sorted(map(str, attributes))
@@ -188,8 +169,8 @@ holding(O, T).
 is_heated(O, T).
 is_cooled(O, T).
 is_cleaned(O, T).
-is_looked(O, T).
-is_opened(O, T).
+is_looked(O1, O2, T).
+is_open(L, T).
 is_heater(L).
 is_cooler(L).
 is_cleaner(L).
@@ -213,61 +194,21 @@ def parse_predicates(fact_set):
     predicates_str = BASE_PREDICATES + '\n' + '\n'.join(predicates)
     return predicates_str
 
-def parse_answer_set(answer_set):  #@ 
+def parse_answer_set(answer_set):
+    """(step, ALFWorld command) for every action atom of a stable model that maps to a command."""
+    two_args = {'pick_up': 'take {} from {}', 'put_down': 'put {} in/on {}', 'heat': 'heat {} with {}',
+                'cool': 'cool {} with {}', 'slice': 'slice {} with {}', 'clean': 'clean {} with {}'}
+    one_arg = {'go_to': 'go to {}', 'open': 'open {}', 'close': 'close {}', 'use': 'use {}', 'examine': 'examine {}'}
     actions = []
     for atom in answer_set:
-        if atom.startswith('action('):
-            parts = atom[7:-1].split(',')
-            if len(parts) == 3:
-                motion = parts[0].split('(')[0]
-                object = parts[0].split('(')[1].replace('_', ' ')
-                recep = parts[1].replace(')', '').replace('_', ' ')
-
-                if motion == 'pick_up':
-                    action_args = f"take {object} from {recep}"
-                elif motion == 'put_down':
-                    action_args = f"put {object} in/on {recep}"
-                elif motion == 'heat':
-                    action_args = f"heat {object} with {recep}"
-                elif motion == 'cool':
-                    action_args = f"cool {object} with {recep}"
-                elif motion == 'slice':
-                    action_args = f"slice {object} with {recep}"
-                elif motion == 'clean':
-                    action_args = f"clean {object} with {recep}"
-                time = int(parts[2])        
-            else:   
-                motion = parts[0].split('(')[0]
-                object = parts[0].split('(')[1].replace(')', '').replace('_', ' ')
-                # param = parts[1].replace(')', '')
-                if motion == 'go_to':
-                    action_args = f"go to {object}"
-                elif motion == 'open' or motion == 'close' or motion == 'use' or motion == 'examine':
-                    action_args = f"{motion} {object}"
-                time = int(parts[1])
-            actions.append((time, f"{action_args}")) #  {param}
-    
-    # Sort actions by time
-    # actions.sort(key=lambda x: x[0])
-    # if actions:
-    #     import ipdb; ipdb.set_trace()
-    # Remove time from the final output
-    # actions = [action for _, action in actions]
+        match = re.match(r'action\((\w+)\(([^()]*)\),(\d+)\)$', atom)
+        if match:
+            motion, args, time = match.groups()
+            args = [arg.replace('_', ' ') for arg in args.split(',')]
+            template = (two_args if len(args) == 2 else one_arg).get(motion)
+            if template:
+                actions.append((int(time), template.format(*args)))
     return actions
-
-def parse_predicted_plan(answer_sets):
-    if len(answer_sets) != 0:    
-        selected_answer_set = random.sample(answer_sets, EVAL_SET_NUM)[0]
-    try:
-        predicted_plan = parse_answer_set(selected_answer_set) if answer_sets else []
-        #     import ipdb; ipdb.set_trace()
-            
-        print(f"\n{'Predicted Plan':=^40}\n{predicted_plan}\n{'':=^40}")
-    except Exception as e:
-        print("Error in parsing predicted plan.")
-        import ipdb; ipdb.set_trace()
-
-    return predicted_plan
 
 def process_ob(ob):
     if ob.startswith('You arrive at loc '):
@@ -325,6 +266,7 @@ def act_to_semantic(act):
         if match:
             obj, loc = match.group(2), match.group(3)
             semantic.append(f"action(pick_up({obj.replace(' ', '_')}, {loc.replace(' ', '_')}), {step}).")
+            semantic.append(f"at({obj.replace(' ', '_')}, {loc.replace(' ', '_')}, {step}).")  # a successful take proves it
 
     # Go to action
     elif 'go to' in action:
@@ -437,7 +379,7 @@ def obs_to_semantic(obs):
     
     for action, (state_predicate, action_predicate) in action_patterns.items():
         if action in observation:
-            match = re.search(f'{action} the (\w+ \d+) using the (\w+ \d+)', observation)
+            match = re.search(rf'{action} the (\w+ \d+) using the (\w+ \d+)', observation)
             if match:
                 obj, tool = match.group(1), match.group(2)
                 semantic.append(f"{state_predicate}({obj.replace(' ', '_')}, {step}).")
@@ -447,76 +389,7 @@ def obs_to_semantic(obs):
         match = re.search(r'(\w+ \d+) is open', observation)
         if match:
             obj = match.group(1)
-            semantic.append(f"is_opened({obj.replace(' ', '_')}, {step}).")
+            semantic.append(f"is_open({obj.replace(' ', '_')}, {step}).")
 
     return semantic
 
-
-from typing import List, Dict, Callable, Tuple, Any
-import warnings
-warnings.filterwarnings("ignore", category=FutureWarning, module="huggingface_hub.file_download")
-warnings.filterwarnings("ignore", category=DeprecationWarning, module="langchain_core._api.deprecation")
-
-from sentence_transformers import SentenceTransformer
-from sentence_transformers.util import cos_sim
-import pandas as pd
-from ast import literal_eval
-import random
-
-
-class RetrievalEngine:
-    def __init__(self,
-                 demo_data_path: str = './Alfworld/data/demo/total_external_data.json',):
-        self.naturalFormat=True
-        self.demo_set = pd.read_json(demo_data_path) # pd.read_pickle(knn_data_path)
-        self.sentence_embedder = SentenceTransformer("all-MiniLM-L12-v2")
-
-    def knn_retrieval(self, query, k=3):
-        # Find K train examples with closest sentence embeddings to test example
-        traj_emb = self.sentence_embedder.encode(query) # 
-        topK = []
-        for _, trainItem in self.demo_set.iterrows():
-            train_step_emb = self.sentence_embedder.encode(trainItem["episode"])
-            dists = -1 * cos_sim(traj_emb, train_step_emb)
-            for j, dist in enumerate(dists[0]):                
-                if len(topK) < k:
-                    topK.append((j, trainItem["positive"], trainItem["episode"], dist))
-                    topK = sorted(topK, key=lambda x: x[-1])
-                else:
-                    if dist < topK[-1][-1]:
-                        if (j, trainItem["positive"], trainItem["episode"], dist) not in topK:
-                            topK.append((j, trainItem["positive"], trainItem["episode"], dist))
-                            topK = sorted(topK, key=lambda x: x[-1])
-                            topK = topK[:k]
-
-        return [entry for entry in topK]
-
-    def search_demo(self, query, k=3,):
-        prompt = ''
-        knn_retrieved_examples = self.knn_retrieval(query, k)
-
-        # Add in-context examples from knn retrieval
-        for retrieved_tuple in knn_retrieved_examples:
-            _ ,positive , retrieved_episode, dist = retrieved_tuple
-
-            if positive:
-                prompt += f"\n{retrieved_episode} (success)"
-            else:
-                prompt += f"\n{retrieved_episode} (fail)"
-            
-        return prompt
-
-
-
-import re
-
-def extract_code_elements(text):
-    pattern = r'\((.*?)\)'
-    match = re.search(pattern, text)
-    
-    if match:
-        elements = match.group(1).split(',')
-        elements = [elem.strip().replace('_',' ') for elem in elements]
-        return elements
-    else:
-        return []

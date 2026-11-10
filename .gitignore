@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.env
+llm_cache.json
+Alfworld/data/error_log/
+Alfworld/*_results.csv

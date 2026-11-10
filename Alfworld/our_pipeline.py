@@ -1,401 +1,257 @@
-import os
-import pickle
-import clingo
-from clingo.control import Control
-from clingo.symbol import parse_term
-import pandas as pd
+"""NeSyC: Algorithm 1 (rule reformulation) and the pieces of Algorithm 2 (rule application) that need the LLM or clingo."""
 import json
-from Alfworld.llm_utils import google_llm, openai_llm, meta_llm
-from Alfworld.data.base.base_program import * 
-MAX_VERIFICATION_TRIAL = 3
-TARGET_PREDICATES = {
-                            ###################################################
-                            'pick_up_openable':'action(pick_up(O, L), T)',
-                            'put_down_openable':'action(put_down(O, L), T)',
-                            'pick_up_precondition1':'action(pick_up(O, L), T)',
-                            'pick_up_precondition2':'action(pick_up(O, L), T)',
-                            'pick_up_precondition3':'action(pick_up(O, L), T)',
-                            
-                            'put_down_precondition2':'action(put_down(O, L), T)',
-                            'heat_precondition3':'action(heat(O, L), T)',
-                                    
-                            'cool_precondition1':'action(cool(O, L), T)',
-                            'cool_precondition2':'action(cool(O, L), T)',
-                            'clean_precondition2':'action(clean(O, L), T)',
-                            'open_precondition1':'action(open(L), T)',
-                            'use_precondition1':'action(use(O), T)',
-                        }
+import re
 
+import clingo
 
-from utils import parse_act_obs
-def extract_rule(text):
-    # Split the text into lines
-    splited = text
-    extract_rule = splited.replace('```', ' ').replace('**','')
-    extract_rule = extract_rule.replace('\\','!').strip()
-    return extract_rule + '\n'
+from Alfworld.llm_utils import llm
+from utils import MAX_STEP_NUM, parse_act_obs
 
-def load_generalized_rules(load_path):
-    with open(load_path, 'r') as f:
-        generalized_rules = f.read()
-    return generalized_rules
-
-def save_generalized_rules(generalized_rules, save_path):
-    with open(save_path, 'w') as f:
-        f.write(generalized_rules)
-
-class Context:
-    def gen_feature(self, x):
-        ret = []
-        for term in str(x.string).split(' '):
-            ret.append(parse_term(term))
-        return ret
-
-prefixes = {
-    'pick_and_place': 'put',
-    'pick_clean_then_place': 'clean',
-    'pick_heat_then_place': 'heat',
-    'pick_cool_then_place': 'cool',
-    'look_at_obj': 'examine',
-    'pick_two_obj': 'puttwo'
+ITER_MAX = 3         # interpretation steps of Algorithm 1 (iter_max)
+ALPHA = 0.5          # Eq. 9: weight of TPR against FPR
+LAMBDA = 0.3         # Eq. 9: weight of the demonstrations T against the working memory M of the current environment
+SOLVE_LIMIT = 50000  # conflicts per planning call (deterministic, unlike a wall-clock cap); then the best plan so far
+DEMO_PATH = './Alfworld/data/demo/total_external_data.json'
+TARGET_PREDICATES = {  # demo action_type (one batch each) -> target action predicate
+    'pick_up_openable': 'action(pick_up(O, L), T)',
+    'put_down_openable': 'action(put_down(O, L), T)',
+    'pick_up_precondition1': 'action(pick_up(O, L), T)',
+    'pick_up_precondition2': 'action(pick_up(O, L), T)',
+    'pick_up_precondition3': 'action(pick_up(O, L), T)',
+    'put_down_precondition2': 'action(put_down(O, L), T)',
+    'heat_precondition3': 'action(heat(O, L), T)',
+    'cool_precondition1': 'action(cool(O, L), T)',
+    'cool_precondition2': 'action(cool(O, L), T)',
+    'clean_precondition2': 'action(clean(O, L), T)',
+    'open_precondition1': 'action(open(L), T)',
+    'use_precondition1': 'action(use(O), T)',
 }
+ACTION_PREDICATES = {re.search(r'\((\w+)', p).group(1): p for p in TARGET_PREDICATES.values()}
 
-def rule_filtering(text):
-    lines = text.replace('`','').split('\n')
-    lines = [line for line in lines if ':-' in line]
-    filtered_lines = [line for line in lines if 'take' not in line]
-    
-    return '\n'.join(filtered_lines)
+
+def solve(program):
+    """None if clingo rejects the program, otherwise whether it has a stable model."""
+    try:
+        ctl = clingo.Control(['--warn=none'], logger=lambda *_: None)
+        ctl.add('base', [], program)
+        ctl.ground([('base', [])])
+        return bool(ctl.solve().satisfiable)
+    except RuntimeError:
+        return None
+
+
+def extract_rules(text):
+    """The integrity constraints in an LLM answer that clingo accepts; each one is a hypothesis."""
+    rules = []
+    text = re.sub(r'%.*', '', text.replace('`', ''))
+    # a constraint starts a statement (":-" not preceded by a rule head) and runs to its final "."
+    for match in re.finditer(r'(?:^|(?<=[^\w)\s]))\s*(:-(?:(?!\n\s*:-)(?:[^.]|\.\.))*\.)', text, re.M):
+        rule = ' '.join(match.group(1).split())
+        constant = re.search(r'[(,]\s*[a-z]\w*\s*[,)]', rule)  # a rule about one named object is not general
+        if rule not in rules and not constant and solve(rule) is not None:
+            rules.append(rule)
+    return rules
+
+
+def to_facts(fact_set):
+    """'{not p(a, T), q(b, T+1)}' -> 'q(b, 1).': closed world, so only positive literals; T is step 0."""
+    body = re.sub(r'\bT\b', '0', re.sub(r'\bT\s*\+\s*1\b', '1', fact_set.strip().strip('{}.')))
+    literals = [x.strip() for x in re.split(r',\s*(?![^()]*\))', body)]
+    return ' '.join(f'{x}.' for x in literals if x and not x.startswith('not '))
+
+
+def load_demos(parse=None):
+    """The demonstrations T as examples. `parse` (the LLM semantic parser) is only called for a demo without fact_set."""
+    examples = []
+    with open(DEMO_PATH) as f:
+        demos = json.load(f)
+    for demo in demos:
+        if demo['action_type'] not in TARGET_PREDICATES:
+            continue
+        text = demo.get('fact_set') or parse(demo)
+        if solve(to_facts(text)) is None:
+            print(f'Skipping demo with an unparsable fact set: {text}')
+            continue
+        examples.append({'text': text, 'facts': to_facts(text), 'positive': demo['positive'] == 'true',
+                         'batch': demo['action_type'], 'target': TARGET_PREDICATES[demo['action_type']]})
+    return examples
+
+
+def interpret(candidates, E_T, E_M):
+    """Hypothesis interpreter. Returns (H, HI(H), feedback, misclassified examples).
+
+    Every candidate is one integrity constraint, so an example is a model of BK and H unless one of the rules fires on
+    it (BK is the static facts each example carries). H is a subset of the candidates chosen greedily for HI (Eq. 9):
+    add every rule that does not lower the score, then drop rules while that raises it; on equal HI the subset that
+    keeps more positive examples wins. A rule that fires on an action which already succeeded in this episode is
+    never kept: that action is a fact of the planning program, so the rule would leave no plan at all.
+    """
+    E = E_T + E_M
+    out = {r: {i for i, e in enumerate(E) if not solve(e['facts'] + r)} for r in candidates}
+    done = {i for i, e in enumerate(E) if e['positive'] and 'step' in e}
+    usable = [r for r in candidates if not out[r] & done]
+
+    def score(rules):
+        excluded = set().union(*(out[r] for r in rules))
+
+        def rate(positive):  # lambda-weighted share of the positive (negative) examples that H does not exclude
+            parts = [(w, [i not in excluded for i in span if E[i]['positive'] == positive])
+                     for w, span in ((LAMBDA, range(len(E_T))), (1 - LAMBDA, range(len(E_T), len(E))))]
+            parts = [(w, sum(kept) / len(kept)) for w, kept in parts if kept]
+            return sum(w * v for w, v in parts) / sum(w for w, _ in parts) if parts else 0.0
+
+        tpr = rate(True)
+        return ALPHA * tpr - (1 - ALPHA) * rate(False), tpr
+
+    best = []
+    for rule in usable:
+        if score(best + [rule]) >= score(best):
+            best.append(rule)
+    while best:
+        rest = max(([r for r in best if r != drop] for drop in best), key=score)
+        if score(rest) <= score(best):
+            break
+        best = rest
+    excluded = set().union(*(out[r] for r in best))
+    wrong = [e for i, e in enumerate(E) if e['positive'] == (i in excluded)]
+    dropped = [r for r in candidates if r not in best]
+    missed = [e['text'] for e in wrong if not e['positive']]
+    feedback = f'HI score of the kept rules: {score(best)[0]:.2f} (best possible: {ALPHA}).\n'
+    if dropped:
+        feedback += 'Rejected rules, each excludes a positive example:\n' + '\n'.join(dropped) + '\n'
+    if missed:
+        feedback += 'Negative examples that no kept rule excludes yet:\n' + '\n'.join(missed) + '\n'
+    return best, score(best)[0], feedback, wrong
+
+
+def load_rules(path):
+    with open(path) as f:
+        return extract_rules(f.read())
+
 
 class Pipeline:
-    def __init__(self, args = {}):
+    def __init__(self, args={}):
         self.asp_program = ''
         self.init_state = ''
         self.dynamic_facts = ''
-        self.adapted_rules = ''
-        self.adaptation_chat_history = ''
         self.goal_state = ''
-        self.method = ''
-        self.v = ''
-        self.grounding = False
-        self.fewshot = False
-        self.clingo_seed = 1
-        self.engine = 'gemini-1.5-flash'
+        self.predicates = ''   # predicates of the current episode, shown to the goal parser
+        self.rules = []        # generalized knowledge R (integrity constraints)
+        self.demos = []        # experience set T
+        self.experience = []   # working memory already merged into T during this episode
+        self.memory = []       # working memory M
+        self.hard_task = None  # the task of Alfworld/data/hard_task.json when run with --hard
+        self.max_steps = MAX_STEP_NUM
+        self.prompt = {}
+        self.engine = ''
         self.rule_save_path = ''
+        self.clingo_seed = 1
         self.temperature = 0.
-        self.max_tokens = 64
-        self.prompt = {} # a mapping from prompt kind (str) to the prompt (str)
-        self.count = 0 # a counter for the number of GPT-3 query
-        self.history = ''
-        self.step_num = 0
-        ###########
-        # Cache
-        ###########
-        self.path_cache = {} # store the mapping from kind (str) to cache file (str)
-        self.cache = {} # store the GPT3 responses for visited stories
-        self.path_mistakes = 'mistakes.xlsx' # file to store the wrong pridictions
-        self.mistakes = [] # store the wrong predictions
-        for k,v in args.items():
+        self.max_tokens = 256
+        for k, v in args.items():
             setattr(self, k, v)
-        self.total_cost = 0
-    
-    def set_task(self, name):
-        for i, (k, v) in enumerate(prefixes.items()):
-            if name.startswith(k):
-                self.v = v
 
     def clean(self):
-        self.init_state = ''
-        self.dynamic_facts = ''
-        self.adapted_rules = ''
-        self.goal_state = ''
-        self.adaptation_chat_history = ''
-        self.step_num = 0
-        self.history = ''
+        self.init_state = self.dynamic_facts = self.goal_state = ''
+        self.experience, self.memory = [], []
 
     def load_prompt(self, kind_to_path):
-        for kind in kind_to_path:
-            with open(kind_to_path[kind], 'r', encoding='utf-8') as f:
+        for kind, path in kind_to_path.items():
+            with open(path, encoding='utf-8') as f:
                 self.prompt[kind] = f.read()
-                
-    def load_cache(self):
-        for kind in self.path_cache:
-            if os.path.isfile(self.path_cache[kind]):
-                with open(self.path_cache[kind], 'rb') as f:
-                    self.cache[kind] = pickle.load(f)
-            else:
-                self.cache[kind] = {}
-    
-    def save_cache(self):
-        for kind in self.path_cache:
-            with open(self.path_cache[kind], 'wb') as f:
-                pickle.dump(self.cache[kind], f, protocol=pickle.HIGHEST_PROTOCOL)
-            if self.count % 100 == 0:
-                with open(self.path_cache[kind]+str(self.count), 'wb') as f:
-                    pickle.dump(self.cache[kind], f, protocol=pickle.HIGHEST_PROTOCOL)
-    
-    def _generate_llm_response(self, prompt, instruction='',stop=[]):
 
-        try:
-            if 'gemini' in self.engine:
-                response = google_llm(
-                    prompt=prompt + instruction,
-                    model_name=self.engine,
-                    temperature=self.temperature,
-                    max_tokens=self.max_tokens,
-                    stop=stop)
-            elif 'gpt' in self.engine:
-                response, cost = openai_llm(
-                    prompt=prompt + instruction,
-                    model_name=self.engine,
-                    temperature=self.temperature,
-                    max_tokens=self.max_tokens,
-                    stop=stop)
-                self.total_cost += cost
-                print(f"##### Total Cost: {self.total_cost} #####")
-            elif 'llama' in self.engine:
-                response = meta_llm(
-                    prompt=prompt + instruction,
-                    model_name=self.engine,
-                    temperature=self.temperature,
-                    max_tokens=self.max_tokens,
-                    stop=stop)
+    def llm(self, prompt):
+        return llm(prompt, self.engine, self.temperature, self.max_tokens)
 
-            return response
-        except Exception as e:
-            print(f"Error generating response: {e}")
-            return None
+    # ---------------------------------------------------------------- Algorithm 1: rule reformulation
+    def parse_demo(self, demo):
+        """Semantic parser for a demonstration that ships without a fact_set."""
+        prompt = (f"{self.prompt['general_fact']}\nExternal Trajectory: {demo['episode']}\n"
+                  f"Target Predicate: {TARGET_PREDICATES[demo['action_type']]}\nFact set: ")
+        return self.llm(prompt).strip().split('\n')[0]
 
-    def _generate_thought(self, prompt):
-        if 'cot' in self.method:
-            thought = self._generate_llm_response(prompt, '\nThought:')
-            if thought:
-                print("\nThought: ", thought)
-                return thought
-        return ''
-    
-    def gen_general_fact_response(self, example, kind='general_fact'):
-        traj = example['traj']
-        target_predicate = example['target_predicate']
-        prompt = f"{self.prompt[kind]}\nExternal Trajectory: {traj}\nTarget Predicate: {target_predicate}"
-        thought = self._generate_thought(prompt)
-        prompt += f"\nThought:{thought}" if thought else ""
+    def gen_hypotheses(self, examples, target, feedback):
+        """Hypothesis generator: background knowledge first (the subsumption rationale), then candidate constraints."""
+        shown = ''.join(f"{'Positive' if e['positive'] else 'Negative'}: {e['text']}\n" for e in examples)
+        bk = self.llm(f"{self.prompt['general_bk']}\nPositive/Negative Examples:\n{shown}Make Background knowledge.\n")
+        return extract_rules(self.llm(
+            f"{self.prompt['general_rule']}\nFeedback:\n{feedback or 'None'}\n\nPositive/Negative Examples:\n{shown}\n"
+            f"Background Knowledge:\n{bk}\n\nTarget Predicate:\n{target}\n\nMake Constraint Rules.\n"))
 
-        response = self._generate_llm_response(prompt, '\nFact set: ')
-        return response
+    def reformulate(self, E_T, E_M, rules, batches):
+        """Algorithm 1. `batches` is [(target predicate, examples)]; returns R, the best-HI rule set."""
+        feedback = ''
+        for i in range(ITER_MAX):
+            for target, examples in batches:
+                rules = rules + self.gen_hypotheses(examples, target, feedback)
+            rules, hi, feedback, wrong = interpret(list(dict.fromkeys(rules)), E_T, E_M)
+            print(f'[Algorithm 1] step {i + 1}: {len(rules)} rules, HI={hi:.2f}, misclassified examples={len(wrong)}')
+            batches = [(target, examples) for target, examples in batches if any(e in wrong for e in examples)]
+            if not batches:  # every example of every batch is classified correctly
+                break
+        return rules
 
+    def generalize_external_traj(self):
+        """Stage 1: learn R from the demonstrations and save it."""
+        batches = [(target, [e for e in self.demos if e['batch'] == batch]) for batch, target in TARGET_PREDICATES.items()]
+        rules = self.reformulate(self.demos, [], [], batches)
+        with open(self.rule_save_path, 'w') as f:
+            f.write('\n'.join(rules) + '\n')
+        print(f'Saved {len(rules)} rules to {self.rule_save_path}')
+        return rules
 
-    def gen_ilp_bk_response(self, examples, kind='general_bk'):
-        pn_e = examples['pn_e']
-        prompt = f"{self.prompt[kind]}\nPositive/Negative Examples:\n{pn_e}"
-        general_bk = self._generate_llm_response(prompt, 'Make Background knowledge.\n')
-        return general_bk
+    # ---------------------------------------------------------------- Algorithm 2: rule application
+    def gen_goal_state_response(self, instruction):
+        prompt = f"{self.prompt['goal'].replace('XXXXX', self.predicates)}{instruction.strip()}\nSemantic Parse:"
+        body = self.llm(prompt).replace('`', '').replace('Semantic Parse:', '').strip().split('\n')[0]
+        body = re.sub(r'^goal\(T\)\s*:-', '', body).strip().rstrip('.')
+        body = body.replace('is_coffemachine', 'is_coffeemachine').replace('is_soap(', 'is_soapbar(')
+        return f'goal(T) :- {body}.'
 
-    def gen_ilp_rule_response(self, examples, kind='general_rule'):
-        pn_e = examples['pn_e']
-        bk = examples['bk']
-        target_predicate = examples['target_predicate']
-        action_type = examples['action_type']
-        general_rule = ''
+    def remember(self, model, step, ok):
+        """Error handler: store the transition taken at `step` (believed state, action) with its affordance in M."""
+        def time_of(atom):
+            match = re.search(r'[,(](\d+)\)$', atom)
+            return int(match.group(1)) if match else step  # atoms without a time argument are static
 
-        ########## Make Positive Rules ###########
-        if 'effect' in action_type:
-            prompt = f"{self.prompt[kind]}\nPositive/Negative Examples:\n{pn_e}\n\nBackground Knowledge:\n{bk}\n\nTarget Predicate:\n{target_predicate}\n\n"
-            prompt = prompt.replace('XXXXX', 'Positive Rules')
-            thought = self._generate_thought(prompt)
-            prompt += f"\nThought:{thought}" if thought else ""
-            response = self._generate_llm_response(prompt, 'Make Positive Rules.\n')
-            general_rule = extract_rule(response)
+        atoms = [a for a in model if time_of(a) == step]
+        name, args = re.match(r'action\((\w+)\((.*)\),\d+\)$', next(a for a in atoms if a.startswith('action('))).groups()
+        shown = [a for a in atoms if a.startswith(('robot_at(', 'holding(', 'action('))
+                 or set(args.split(',')) & set(re.findall(r'\w+', a))]
+        self.memory.append({'text': '{' + ', '.join(shown) + '}', 'facts': ' '.join(f'{a}.' for a in atoms),
+                            'positive': ok, 'batch': name, 'step': step,
+                            'target': ACTION_PREDICATES.get(name, f'action({name}(L), T)')})
 
-        ########## Make Constraint Rules ###########
-        elif 'precondition' in action_type or 'openable' in action_type:
-            prompt = f"{self.prompt[kind]}\nPositive/Negative Examples:\n{pn_e}\n\nBackground Knowledge:\n{bk}\n\nTarget Predicate:\n{target_predicate}\n\n"
-            prompt = prompt.replace('XXXXX', 'Constraint Rules')
-            thought = self._generate_thought(prompt)
-            prompt += f"\nThought:{thought}" if thought else ""
-            # import ipdb; ipdb.set_trace()
-            response = self._generate_llm_response(prompt,'Make Constraint Rules.\n')
-            general_rule = extract_rule(response)
-        return general_rule
+    def refine(self):
+        """Algorithm 2, lines 12-15: the last action failed, so re-enter Algorithm 1 with T and M, starting from R."""
+        seen = self.demos + self.experience
+        target = self.memory[-1]['target']
+        batch = [e for e in seen + self.memory if e['target'] == target]
+        self.rules = self.reformulate(seen, self.memory, self.rules, [(target, batch)])
+        self.experience += self.memory
+        self.memory = []
 
-
-    def gen_ilp_response(self, examples, kind='general_rule'):
-        pn_e = examples['pn_e']
-        target_predicate = examples['target_predicate']
-        action_type = examples['action_type']
-        general_rule = ''
-
-        ########## Make Positive Rules ###########
-        if 'effect' in action_type:
-            prompt = f"{self.prompt['general_rule']}\nPositive/Negative Examples:\n{pn_e}\n\nTarget Predicate:\n{target_predicate}\n\n"
-            prompt = prompt.replace('XXXXX', 'Positive Rules')
-            thought = self._generate_thought(prompt)
-            prompt += f"\nThought:{thought}" if thought else ""
-            response = self._generate_llm_response(prompt, 'Make Positive Rules.\n')
-            general_rule = extract_rule(response)
-
-        ########## Make Constraint Rules ###########
-        elif 'precondition' in action_type or 'openable' in action_type:
-            prompt = f"{self.prompt['general_rule']}\nPositive/Negative Examples:\n{pn_e}\n\nTarget Predicate:\n{target_predicate}\n\n"
-            prompt = prompt.replace('XXXXX', 'Constraint Rules')
-            thought = self._generate_thought(prompt)
-            prompt += f"\nThought:{thought}" if thought else ""
-            response = self._generate_llm_response(prompt,'Make Constraint Rules.\n')
-            general_rule = extract_rule(response)
-        return general_rule
-
-    def generalize_external_traj(self, save=True):
-        rule_sets = ''
-        for action_type, target_predicate in TARGET_PREDICATES.items():
-            action = action_type.split('_')[0]
-            path_to_dataset = f'./Alfworld/data/demo/{action}_external_data.json'
-            with open(path_to_dataset, 'r') as f:
-                dataset = json.load(f)
-            p_examples = []
-            n_examples = []
-            pn_examples_str = ''
-            external_trajs = [(data['episode'], data['positive']) for data in dataset if data['action_type'] == action_type]
-            for traj_info in external_trajs:
-                traj, positive = traj_info
-                example = {'action_type':action_type, 'traj': traj, 'target_predicate': target_predicate}
-                pn_e = self.gen_general_fact_response(example)
-                if positive == 'true':
-                    p_examples.append(pn_e.split('\n')[0])
-                else:
-                    n_examples.append(pn_e.split('\n')[0])
-            # p_examples = [data['fact_set'] for data in dataset if data['action_type'] == action_type and data['positive'] == "true"]
-            for p_example in p_examples:
-                pn_examples_str += f'Positive: {p_example}\n'
-            # n_examples = [data['fact_set'] for data in dataset if data['action_type'] == action_type and not data['positive']== "false"]
-            for n_example in n_examples:
-                pn_examples_str += f'Negative: {n_example}\n'
-
-            examples = {'action_type':action_type, 'pn_e': pn_examples_str, 'target_predicate': target_predicate}
-            bk = self.gen_ilp_bk_response(examples)
-            print(f"#### BK: {action_type} ####\n{bk}" )
-            examples = {'action_type':action_type, 'pn_e': pn_examples_str, 'target_predicate': target_predicate, 'bk': bk}
-            rule_set = self.gen_ilp_rule_response(examples)
-            print(f"#### ILP rule set: {action_type} ####\n{rule_set}" )
-            rule_sets += rule_set + '\n'
-       
-        rule_sets = rule_filtering(rule_sets)
-        if save:
-            save_generalized_rules(rule_sets, self.rule_save_path)
-        return rule_sets
-    
-
-    def gen_goal_state_response(self, instruction, kind):
-        prompt = f"{self.prompt[kind]}{instruction.strip()}"
-        response = self._generate_llm_response(prompt, '\nSemantic Parse:')
-        response = f"goal(T) :- {response}"
-        # Heuristic matching
-        response = response.replace('is_coffemachine', 'is_coffeemachine')
-        response = response.replace('is_soap(', 'is_soapbar(')
-        return response
-    
-    def gen_adapt_fact_response(self, observations, kind):
-        prompt = f"{self.prompt[kind]}\n\nEnvironment Trajectory:\n{observations}"
-        thought = self._generate_thought(prompt)
-        prompt += f"\nThought: {thought}" if thought else ""
-
-        response = self._generate_llm_response(prompt, '\nSemantic Parse:\n') 
-        added_facts = response.split('Semantic Parse:')[-1]
-        print(f"\n{'New Facts':=^40}\n{added_facts}\n{'':=^40}")
-
-        return [], added_facts
-    
-    def get_HI_score(self, tp, tn, fp, fn, alpha=0.5):
-        # Calculate HI score
-        TPR = tp/(tp+fn) if tp+fn > 0 else 0
-        FPR = fp/(fp+tn) if fp+tn > 0 else 0
-        score = alpha * TPR + (1-alpha) * FPR
-        return score
-
-    def gen_adapt_rule_response(self, observations, kind='adapt'):
-        # Implement advanced rule refinement process
-        # This is a simple version of the Rule Refinement process.
-        # To enhance rule quality using HI scores:
-        # 1. Calculate tp/tn/fp/fn based on the current rule and experience.
-        # 2. Calculate HI score based on the tp/tn/fp/fn values using get_HI_score.
-        # 3. Modify prompt to incorporate HI scores
-        # 4. Adjust rule generation based on HI feedback
-
-        if kind == 'adapt':
-            prompt = f"{self.prompt[kind]}\n\nEnvironment Trajectory:\n{observations}"
-        
-        if self.adaptation_chat_history == '':
-            self.adaptation_chat_history = prompt
-        else:
-            self.adaptation_chat_history += '\nFeedback: The Program you created has 0 Stable models. Identify what went wrong, improve it, and create it again.\n'
-        
-        new_program = self._generate_llm_response(self.adaptation_chat_history).replace('```asp','').replace('```','').replace('prolog','')
-        print(f"\n{'New Rules':=^40}\n{new_program}\n{'':=^40}")
-        new_program = rule_filtering(new_program)
-        return f'{new_program}'
-
-    def setup_and_ground(self, program: str) -> clingo.Control:
-        context=Context()
-        ctl = Control(['0', '--warn=none', '--opt-mode=optN', f'--seed={self.clingo_seed}', '-t', '16'])
+    def gen_answer_set(self, program):
+        """Task planner: up to 10 optimal stable models, each a list of atom strings; [] if there is no plan."""
+        log = []
+        ctl = clingo.Control(['0', '--warn=none', '--opt-mode=optN', f'--seed={self.clingo_seed}', '-t', '1',
+                              f'--solve-limit={SOLVE_LIMIT}'], logger=lambda code, message: log.append(message))
         ctl.configuration.solve.models = 10
-        ctl.add('base', [], program)
-        ctl.ground([('base', [])], context=context)
-        return ctl
-
-    def gen_answer_set(self, program, opt=False):
-        """
-        Args:
-            program (str): a string of ASP program
-            opt (bool): if true, only optimal answer sets are returned
-                        leave it to False when there is no weak constraint
-        """
-        models = []
         try:
-            clingo_control = self.setup_and_ground(program)
-        except Exception as e:
+            ctl.add('base', [], program)
+            ctl.ground([('base', [])])
+        except RuntimeError:
+            print('clingo rejected the program:\n' + '\n'.join(log))
             return []
-        if opt:
-            solve_result = clingo_control.solve(on_model = lambda model: models.append(model.symbols(atoms=True,shown=True)) if model.optimality_proven else None)
-        else:
-            solve_result = clingo_control.solve(on_model = lambda model: models.append(model.symbols(atoms=True,shown=True)))
-        models = [[str(atom) for atom in model] for model in models]
-        return models #, complete
+        models = []
+        ctl.solve(on_model=lambda m: models.append((m.optimality_proven, [str(atom) for atom in m.symbols(atoms=True)])))
+        return [atoms for proven, atoms in models if proven] or [atoms for _, atoms in models[-1:]]
 
-    def eval_single_plan(self, example, opt=False, to_print=False):
-        cnt = 0
-        answer_sets = []
-        for kind in example:
-            if kind == 'goal':
-                responses = self.gen_goal_state_response(example[kind], kind) + '\n'
-                self.goal_state = responses
-                print(f"\n{'goal':=^40}\n{self.goal_state}\n{'':=^40}")
-
-                program = self.asp_program + self.init_state + '\n' + self.goal_state + '\n\n' + self.adapted_rules +'\n'     
-                answer_sets = self.gen_answer_set(program, opt=opt)
-
-            elif kind == 'adapt_fact':
-                new_facts = '\n'.join(parse_act_obs(example[kind]))
-                self.dynamic_facts +='\n'+ new_facts
-                if to_print:
-                    print(f"\n{'new facts':=^40}\n{new_facts}\n{'':=^40}")
-                cur_state = self.init_state + '\n' + self.dynamic_facts
-                # New facts have high priority
-                program = self.asp_program + '\n' + cur_state + '\n' + self.goal_state + '\n\n' + self.adapted_rules +'\n'     
-                answer_sets = self.gen_answer_set(program, opt=opt)
-                
-            elif kind == 'adapt_rule':
-                traj1, traj2 = example[kind]
-                new_facts = '\n'.join(parse_act_obs(traj1))
-
-                self.dynamic_facts += '\n'+ new_facts
-                if to_print:
-                    print(f"\n{'new facts':=^40}\n{new_facts}\n{'':=^40}")
-                cur_state = self.init_state + '\n' + self.dynamic_facts
-                while len(answer_sets) == 0 and cnt < MAX_VERIFICATION_TRIAL :
-                    self.adapted_rules = self.gen_adapt_rule_response(traj2, kind)
-                    program = self.asp_program + cur_state + '\n' + self.goal_state + '\n\n' + self.adapted_rules +'\n'      
-                    answer_sets = self.gen_answer_set(program, opt=opt)
-                    cnt += 1
-
-                self.adaptation_chat_history = ''
-        return answer_sets
-
+    def eval_single_plan(self, example):
+        if 'goal' in example:
+            self.goal_state = self.gen_goal_state_response(example['goal'])
+            print(f"\n{'goal':=^40}\n{self.goal_state}\n{'':=^40}")
+        if 'adapt_fact' in example:
+            self.dynamic_facts += '\n' + '\n'.join(parse_act_obs(example['adapt_fact']))
+        return self.gen_answer_set('\n'.join(
+            [self.asp_program, self.init_state, self.dynamic_facts, self.goal_state, *self.rules]))
