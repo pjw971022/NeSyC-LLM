@@ -92,7 +92,7 @@ def run_alfworld(
     env.game_files = files[:eval_episode_num]
     eval_episode_num = len(env.game_files)
     env = env.init_env(batch_size=1)
-    agent = None if method == 'ours' else ReActAgent(pipeline.llm, reflexion=method == 'reflexion')
+    agent = None if method == 'ours' else ReActAgent(pipeline.llm, method == 'reflexion', method == 'react_memory')
     results = {}  # game -> (reward, goal condition, plan accuracy) of its latest trial
 
     for episode in range(eval_episode_num * (REFLEXION_TRIALS if method == 'reflexion' else 1)):
@@ -165,6 +165,8 @@ def run_alfworld(
                                                 agent)
 
         results[name] = (r, gc, plan_acc)
+        if method == 'react_memory':
+            agent.note(r)  # lessons for the following episodes
         if method == 'reflexion' and not r and episode < eval_episode_num * (REFLEXION_TRIALS - 1):
             agent.reflect()  # a plan for the next trial of this game
         pipeline.clean()
@@ -403,6 +405,8 @@ def run_episode(
             'instr_update_num': instr_update_num,
             'needs_open': hard['needs_open'] if hard else [],
             'needs_clean': hard.get('needs_clean', []) if hard else [],
+            'not_clean': hard.get('not_clean', []) if hard else [],
+            'one_door': hard.get('one_door', False) if hard else False,
         }
         obs, r, done, info = env.step([action_info])
         obs, r, done = process_ob(obs[0]), info['won'][0], done[0]

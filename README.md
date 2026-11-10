@@ -43,7 +43,8 @@ ENGINE=<model id> bash Alfworld/script/low_dynamics.sh
 ENGINE=<model id> bash Alfworld/script/high_dynamics.sh
 ENGINE=<model id> bash Alfworld/script/hard.sh           # one hard task, see below
 ENGINE=<model id> bash Alfworld/script/hard_suite.sh     # six harder tasks in a row, see below
-ENGINE=<model id> bash Alfworld/script/static.sh --method react       # baselines: react | reflexion
+ENGINE=<model id> bash Alfworld/script/hard_stream.sh    # eleven tasks with shared hidden rules, see below
+ENGINE=<model id> bash Alfworld/script/static.sh --method react       # baselines: react | reflexion | react_memory
 pytest                                                   # LLM-free checks
 ```
 
@@ -91,7 +92,7 @@ The same comparison with a small model, Claude Haiku 5.5, plus the hard suite:
 
 | | Success (20 games) | Actions / game | LLM calls / game | Hard suite (6 tasks) |
 |---|---|---|---|---|
-| NeSyC | 19 / 20 | 8.0 | 3.1 (+27 once) | 0 / 6 |
+| NeSyC | 19 / 20 | 7.9 | about 3 (+27 once) | 0 / 6 |
 | ReAct | 20 / 20 | 7.0 | 7.2 | 0 / 6 |
 | Reflexion (3 trials) | 20 / 20 | 7.0 | 7.2 | 0 / 6 |
 
@@ -101,8 +102,22 @@ found). NeSyC learned too few rules in stage 1 (nothing about where cooling or c
 first episode failing on those, and ended with a rule set under which the planner finds no plan; in continual
 mode that rule set is carried into the remaining five episodes. A first NeSyC run with Haiku scored 4 / 20: the
 interpreter had kept a rule that forbade demonstrated actions, which is why it now refuses such rules.
+The hard stream (11 kitchens, shared hidden rules, learned knowledge carried over), Claude Fable 5.2:
+
+| | Solved | LLM calls | Notes |
+|---|---|---|---|
+| NeSyC (`--continual`) | 4 / 11 | 24 | 2 episodes lost while learning, 5 with no plan at all |
+| ReAct | 0 / 11 | 389 | no memory: runs into the same hidden rules every time |
+| ReAct + notes carried over (`react_memory`) | 10 / 11 | 249 | fails the first episode, then solves every one |
+| Reflexion (3 trials per game) | 11 / 11 | 687 | 0 / 11 on the first trial, 10 on the second, 1 on the third |
+
+Carrying knowledge over is what matters here: ReAct without memory solves nothing. But NeSyC is not the best way
+to carry it. It learned all four hidden rules correctly and, from one ambiguous failure, one wrong rule (nothing
+can be heated while another object is in the microwave). Nothing ever retracts a rule, so every kitchen whose
+microwave is not empty was left without a plan. The baselines' free-text memory made no such mistake.
+
 The paper's gap in success rate (ReAct 35.8 %, Reflexion 39.0 %, NeSyC 82.9 % with gpt-4o) does not appear in
-any of these runs; 20 games, 7 hard tasks and two LLMs are too few to say more.
+any of these runs. NeSyC's measured advantage is the number of LLM calls.
 
 Read these numbers with the following in mind:
 
@@ -111,7 +126,8 @@ Read these numbers with the following in mind:
   batches. That is not a raw API call: temperature and the 256-token cap were not enforced (the longest answer is
   28 words) and an agent saw the other prompts of its batch (for the baselines: five games in a row, so it could
   carry knowledge from one game to the next). All prompts and answers are in
-  `Alfworld/data/llm_cache_claude-fable-5-2.json.gz` (310) and `llm_cache_claude-haiku-5-5.json.gz` (911); the
+  `Alfworld/data/llm_cache_claude-fable-5-2.json.gz`, `llm_cache_claude-haiku-5-5.json.gz` and, for the
+  `react_memory` run, `llm_cache_claude-fable-5-2_react_memory.json.gz` (about 2,200 calls in all); the
   learned rules are in `Alfworld/data/ilp_rule_claude-*.txt`.
 - **Replay without a key**, from the transcript (identical numbers, no API call):
   `LLM_CACHE=Alfworld/data/llm_cache_claude-fable-5-2.json.gz ENGINE=claude-fable-5-2 bash Alfworld/script/static.sh`
@@ -146,6 +162,12 @@ two missing conditions at once, and the demonstrations contradict one of them. W
 its learned rules and experience from one episode to the next, which is where a rule learner should gain over
 an agent that starts from scratch each time. Every task is solvable in 19-22 actions: the pipeline does it when
 the LLM is replaced by a script that proposes the right rules.
+
+`Alfworld/data/hard_stream.json` is the version built to test knowledge reuse, also fixed before any model ran
+on it: eleven kitchens (a twelfth was dropped because it is unsolvable even with the right rules), the potato
+must end up hot and washed, and four hidden rules hold everywhere: doors must be open to heat or chill; only a
+washed object can be chilled; only one door may be open at a time; a washed object can no longer be heated (so
+washing first, the natural order, is a dead end for that potato).
 
 ## Changes since `bad2329`
 

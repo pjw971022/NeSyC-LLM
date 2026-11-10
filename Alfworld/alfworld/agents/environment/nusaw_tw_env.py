@@ -53,11 +53,14 @@ class CustomRewardWrapper(textworld.core.Wrapper):
                     action_info['command'] = 'moving error'
         
         # Hard tasks: preconditions the demonstrations never show. The listed verbs need the appliance door open
-        # (needs_open) or an object that was cleaned earlier in the episode (needs_clean).
+        # (needs_open), an object that was cleaned earlier in the episode (needs_clean) or one that was not
+        # (not_clean); with one_door nothing can be opened while another door is open.
         verb, _, rest = action_info['command'].partition(' ')
         obj, _, recep = rest.partition(' with ')
         if ((verb in action_info.get('needs_open', []) and recep not in self.opened)
-                or (verb in action_info.get('needs_clean', []) and obj not in self.cleaned)):
+                or (verb in action_info.get('needs_clean', []) and obj not in self.cleaned)
+                or (verb in action_info.get('not_clean', []) and obj in self.cleaned)
+                or (action_info.get('one_door') and verb == 'open' and self.opened)):
             action_info['command'] = 'house rule'  # not a command, so nothing happens
 
         ##### Postprocessing #####

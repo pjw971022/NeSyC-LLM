@@ -42,6 +42,16 @@ need this later when you are solving the same task. Give your plan after "Plan".
 New plan:"""
 
 
+# ReAct with memory across episodes: the counterpart of NeSyC keeping its rules (--continual).
+NOTE = """You just finished the episode below ({outcome}). The next episodes take place in other kitchens that follow \
+the same hidden rules. In at most 80 words, write what you learned that will help there: which actions failed, \
+what made them work, and the order of steps that worked.
+
+{history}
+
+Lessons:"""
+
+
 def retrieve(query, k=TOP_K):
     """The k demonstrations closest to the query, as prompt lines."""
     # lean: TF-IDF cosine over words; the lost original used MiniLM sentence embeddings (a local model download)
@@ -59,15 +69,18 @@ def retrieve(query, k=TOP_K):
 
 
 class ReActAgent:
-    def __init__(self, llm, reflexion=False):
+    def __init__(self, llm, reflexion=False, notes=False):
         self.llm = llm
         self.reflexion = reflexion
+        self.notes = [] if notes else None  # lessons written after every episode (react_memory)
         self.reflections = defaultdict(list)  # game -> plans written after its failed trials
         self.game = self.prompt = ''
 
     def start(self, game, obs):
         plans = ''.join(f'Trial {i}: {plan}\n' for i, plan in enumerate(self.reflections[game]))
         memory = f'\nYour memory for the task below:\n{plans}' if plans else ''
+        if self.notes:
+            memory = '\nLessons from earlier episodes in other kitchens:\n' + ''.join(f'- {n}\n' for n in self.notes)
         self.game = game
         task = obs.split('Your task is to:')[-1].split('\nObject Information')[0]  # the room listing would swamp it
         self.prompt = REACT.format(demos=''.join(retrieve(task)), memory=memory, obs=obs)
@@ -84,6 +97,10 @@ class ReActAgent:
 
     def observe(self, action, obs):
         self.prompt += f' {action}\n{obs}\n>'
+
+    def note(self, solved):
+        history = self.prompt.split('Here is the task.\n')[-1]
+        self.notes.append(self.llm(NOTE.format(outcome='solved' if solved else 'not solved', history=history)).strip())
 
     def reflect(self):
         """Reflexion: after a failed trial, write a plan for the next trial of this game."""

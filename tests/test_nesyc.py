@@ -169,3 +169,11 @@ def test_a_demonstration_is_only_overridden_by_a_failure_in_the_current_environm
     p.remember(['robot_at(microwave_1,3)', 'holding(potato_1,3)', 'is_heater(microwave_1)',
                 'action(heat(potato_1,microwave_1),3)'], 3, ok=False)
     assert interpret([washed], p.demos, p.memory)[0] == [washed]
+
+
+def test_react_memory_shows_lessons_of_earlier_episodes_in_every_later_one():
+    agent = ReActAgent(lambda prompt: 'Open the microwave before heating.', notes=True)
+    agent.start('kitchen-1', 'Your task is to: heat a potato.')
+    agent.note(solved=False)
+    agent.start('kitchen-2', 'Your task is to: heat a potato.')
+    assert '- Open the microwave before heating.' in agent.prompt

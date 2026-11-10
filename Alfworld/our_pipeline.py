@@ -223,7 +223,7 @@ class Pipeline:
 
         atoms = [a for a in model if time_of(a) == step]
         name, args = re.match(r'action\((\w+)\((.*)\),\d+\)$', next(a for a in atoms if a.startswith('action('))).groups()
-        shown = [a for a in atoms if a.startswith(('robot_at(', 'holding(', 'action('))
+        shown = [a for a in atoms if a.startswith(('robot_at(', 'holding(', 'action(', 'is_open('))
                  or set(args.split(',')) & set(re.findall(r'\w+', a))]
         self.memory.append({'text': '{' + ', '.join(shown) + '}', 'facts': ' '.join(f'{a}.' for a in atoms),
                             'positive': ok, 'batch': name, 'step': step,
