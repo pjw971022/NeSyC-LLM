@@ -111,7 +111,7 @@ BASE_ASP_PROGRAM = '''
 step(0..max_steps).
 
 % States
-{at(Object, Location, T) : location(Location)} 1 :- object(Object), step(T).
+% at/3 is derived only (facts, inertia, put_down): unknown locations are never guessed.
 {robot_at(Location, T) : location(Location)} = 1 :- step(T).
 {holding(Object, T) : object(Object)} 1 :- step(T).
 {is_heated(Object, T) : heatable(Object)} :- step(T).
@@ -135,8 +135,8 @@ step(0..max_steps).
 
 % State inertia
 at(O, L, T+1) :- at(O, L, T), not action(pick_up(O, _), T), step(T+1).
-is_heated(O, T+1) :- is_heated(O, T), step(T+1).
-is_cooled(O, T+1) :- is_cooled(O, T), step(T+1).
+is_heated(O, T+1) :- is_heated(O, T), not cools(O, T), step(T+1).  % cools/heats: only defined by PHYSICS
+is_cooled(O, T+1) :- is_cooled(O, T), not heats(O, T), step(T+1).
 is_cleaned(O, T+1) :- is_cleaned(O, T), step(T+1).
 is_looked(O1, O2, T+1) :- is_looked(O1, O2, T), step(T+1).
 is_open(L, T+1) :- is_open(L, T), not action(close(L), T), step(T+1).
@@ -155,11 +155,9 @@ at(O, L, T+1) :- action(put_down(O, L), T).
 
 % Basic Action constraints
 :- holding(O, T), not holding(O, T-1), not action(pick_up(O, _), T-1).
-:- at(O, L1, T), at(O, L2, T+1), L1 != L2, not action(pick_up(O, L1), T).
 :- is_heated(O, T+1), not is_heated(O, T), not action(heat(O, _), T).
 :- is_cooled(O, T+1), not is_cooled(O, T), not action(cool(O, _), T).
 :- is_cleaned(O, T+1), not is_cleaned(O, T), not action(clean(O, _), T).
-:- holding(O, T), at(O, _, T).
 :- robot_at(L1, T), robot_at(L2, T+1), L1 != L2, not action(go_to(L2), T).
 :- is_open(L, T+1), not is_open(L, T), not action(open(L), T).
 :- is_looked(O1, O2, T+1), not is_looked(O1, O2, T), not action(use(O2), T).
@@ -168,6 +166,9 @@ at(O, L, T+1) :- action(put_down(O, L), T).
 % Goal Constraints
 goal(T) :- goal(T-1), step(T), T > 0.
 :- not goal(max_steps).
+
+% From the current step on a plan has no idle step before a later action (earlier steps may have failed).
+:- now(N), step(T), T >= N, not action(_, T), action(_, T2), T2 > T.
 
 % Minimize the number of actions and steps to reach the goal
 #minimize { 1@2,T : action(_, T) }.
@@ -188,4 +189,15 @@ holding(O, T+1) :- holding(O, T), not action(put_down(O, _), T), step(T+1).
 location(middle_of_room).
 robot_at(middle_of_room, 0).
 #show action/2.
+'''
+# --plus: effects as in ALFWorld's PDDL that the program above leaves open: chilling removes heat, heating removes
+# cold, closing closes, and receptacles start closed. Off by default because it changes which plans are chosen,
+# so runs made without it would no longer replay.
+PHYSICS = '''
+cools(O, T) :- action(cool(O, _), T).
+heats(O, T) :- action(heat(O, _), T).
+:- is_heated(O, T+1), cools(O, T).
+:- is_cooled(O, T+1), heats(O, T).
+:- is_open(L, T+1), action(close(L), T).
+:- is_open(L, 0).
 '''

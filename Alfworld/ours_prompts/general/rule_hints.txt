@@ -1,0 +1,4 @@
+Guidelines:
+- Cover every precondition of the target action: where the robot must be (robot_at), what it must be holding (holding), and what property or state the object and the location must have.
+- A rule must not fire on any positive example. A condition that also holds in a positive example is not the cause of a failure.
+- To explain a failed action, compare it with the successful ones and use the condition that differs, not one that merely happened to be true.

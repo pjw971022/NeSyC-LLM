@@ -122,7 +122,7 @@
     },
     {
         "episode": "The robot, standing in the living room, puts down a book on the coffee table.",
-        "fact_set": "{holding(book, T), robot_at(living_room, T), at(coffee_table, living_room, T), action(put_down(book, coffee_table), T)}",
+        "fact_set": "{holding(book, T), robot_at(coffee_table, T), at(coffee_table, living_room, T), action(put_down(book, coffee_table), T)}",
         "expert_rule": ":- action(put_down(_, L), T), not robot_at(L, T).",
         "action_type": "put_down_precondition2",
         "positive": "true",
@@ -144,7 +144,7 @@
     },
     {
         "episode": "The robot, in the bedroom, places a folded shirt into the wardrobe.",
-        "fact_set": "{holding(folded_shirt, T), robot_at(bedroom, T), at(wardrobe, bedroom, T), action(put_down(folded_shirt, wardrobe), T)}",
+        "fact_set": "{holding(folded_shirt, T), robot_at(wardrobe, T), at(wardrobe, bedroom, T), action(put_down(folded_shirt, wardrobe), T)}",
         "expert_rule": ":- action(put_down(_, L), T), not robot_at(L, T).",
         "action_type": "put_down_precondition2",
         "positive": "true",
@@ -210,7 +210,7 @@
     },
     {
         "episode": "The robot sees a book on the table in the living room. It moves to the table and picks up the book.",
-        "fact_set": "{at(book, living_room_table, T), robot_at(living_room, T), action(pick_up(book, living_room_table), T)}",
+        "fact_set": "{at(book, living_room_table, T), robot_at(living_room_table, T), action(pick_up(book, living_room_table), T)}",
         "expert_rule": ":- action(pick_up(O, L), T), not at(O, L, T).",
         "action_type": "pick_up_precondition1",
         "positive": "true",
@@ -232,7 +232,7 @@
     },
     {
         "episode": "The robot, with empty hands, moves to the dining table and picks up a plate.",
-        "fact_set": "{not holding(_, T), robot_at(dining_room, T), at(plate, dining_table, T), action(pick_up(plate, dining_table), T)}",
+        "fact_set": "{not holding(_, T), robot_at(dining_table, T), at(plate, dining_table, T), action(pick_up(plate, dining_table), T)}",
         "expert_rule": ":- action(pick_up(_, _), T), holding(_, T).",
         "action_type": "pick_up_precondition2",
         "positive": "true",
@@ -243,7 +243,7 @@
     },
     {
         "episode": "The robot, while holding a book, tries to pick up a pen from the desk.",
-        "fact_set": "{holding(book, T), robot_at(study_room, T), at(pen, desk, T), action(pick_up(pen, desk), T)}",
+        "fact_set": "{holding(book, T), robot_at(desk, T), at(pen, desk, T), action(pick_up(pen, desk), T)}",
         "expert_rule": ":- action(pick_up(_, _), T), holding(_, T).",
         "action_type": "pick_up_precondition2",
         "positive": "false",
@@ -254,7 +254,7 @@
     },
     {
         "episode": "The robot is in the kitchen and picks up a spatula from the kitchen counter.",
-        "fact_set": "{robot_at(kitchen, T), at(spatula, kitchen_counter, T), action(pick_up(spatula, kitchen_counter), T)}",
+        "fact_set": "{robot_at(kitchen_counter, T), at(spatula, kitchen_counter, T), action(pick_up(spatula, kitchen_counter), T)}",
         "expert_rule": ":- action(pick_up(O, L), T), not robot_at(L, T).",
         "action_type": "pick_up_precondition3",
         "positive": "true",
@@ -298,7 +298,7 @@
     },
     {
         "episode": "The robot is in front of the refrigerator and opens it to get food.",
-        "fact_set": "{robot_at(kitchen, T), at(refrigerator, kitchen, T), action(open(refrigerator), T)}",
+        "fact_set": "{robot_at(refrigerator, T), at(refrigerator, kitchen, T), action(open(refrigerator), T)}",
         "expert_rule": ":- action(open(L), T), not robot_at(L, T).",
         "action_type": "open_precondition1",
         "positive": "true",
@@ -397,18 +397,7 @@
     },
     {
         "episode": "The robot is in the kitchen, holding a bowl of soup, and uses the microwave to heat it.",
-        "fact_set": "{holding(soup_bowl, T), robot_at(kitchen, T), is_heater(microwave), action(heat(soup_bowl, microwave), T)}",
-        "expert_rule": ":- action(heat(_, L), T), not robot_at(L, T).",
-        "action_type": "heat_precondition3",
-        "positive": "true",
-        "task": "prepare meal",
-        "scene": "Merom_1_int",
-        "embodiment": "robot",
-        "reference": "store an uncooked turkey, drying table, clean flip flops"
-    },
-    {
-        "episode": "The robot is in the kitchen, holding a bowl of soup, and uses the microwave to heat it.",
-        "fact_set": "{holding(soup_bowl, T), robot_at(kitchen, T), is_heater(microwave), action(heat(soup_bowl, microwave), T)}",
+        "fact_set": "{holding(soup_bowl, T), robot_at(microwave, T), is_heater(microwave), action(heat(soup_bowl, microwave), T)}",
         "expert_rule": ":- action(heat(_, L), T), not robot_at(L, T).",
         "action_type": "heat_precondition3",
         "positive": "true",
@@ -441,7 +430,7 @@
     },
     {
         "episode": "The robot tries to cool a hot plate by placing it on the kitchen counter.",
-        "fact_set": "{holding(hot_plate, T), robot_at(kitchen, T), not is_cooler(kitchen_counter), action(cool(hot_plate, kitchen_counter), T)}",
+        "fact_set": "{holding(hot_plate, T), robot_at(kitchen_counter, T), not is_cooler(kitchen_counter), action(cool(hot_plate, kitchen_counter), T)}",
         "expert_rule": ":- action(cool(_, L), T), not is_cooler(L).",
         "action_type": "cool_precondition1",
         "positive": "false",
@@ -452,7 +441,7 @@
     },
     {
         "episode": "The robot places a warm drink in the refrigerator to cool it down.",
-        "fact_set": "{holding(warm_drink, T), robot_at(kitchen, T), is_cooler(refrigerator), action(cool(warm_drink, refrigerator), T)}",
+        "fact_set": "{holding(warm_drink, T), robot_at(refrigerator, T), is_cooler(refrigerator), action(cool(warm_drink, refrigerator), T)}",
         "expert_rule": ":- action(cool(_, L), T), not is_cooler(L).",
         "action_type": "cool_precondition1",
         "positive": "true",
@@ -463,7 +452,7 @@
     },
     {
         "episode": "The robot, holding a hot drink, places it in the refrigerator to cool it down.",
-        "fact_set": "{holding(hot_drink, T), robot_at(kitchen, T), is_cooler(refrigerator), action(cool(hot_drink, refrigerator), T)}",
+        "fact_set": "{holding(hot_drink, T), robot_at(refrigerator, T), is_cooler(refrigerator), action(cool(hot_drink, refrigerator), T)}",
         "expert_rule": ":- action(cool(O, L), T), not holding(O, T).",
         "action_type": "cool_precondition2",
         "positive": "true",
@@ -474,7 +463,7 @@
     },
     {
         "episode": "The robot attempts to cool a hot dish in the freezer without picking it up.",
-        "fact_set": "{not holding(hot_dish, T), robot_at(kitchen, T), is_cooler(freezer), action(cool(hot_dish, freezer), T)}",
+        "fact_set": "{not holding(hot_dish, T), robot_at(freezer, T), is_cooler(freezer), action(cool(hot_dish, freezer), T)}",
         "expert_rule": ":- action(cool(O, L), T), not holding(O, T).",
         "action_type": "cool_precondition2",
         "positive": "false",
@@ -529,7 +518,7 @@
     },
     {
         "episode": "The robot, holding a dirty plate, uses the dishwasher to clean it.",
-        "fact_set": "{holding(dirty_plate, T), robot_at(kitchen, T), is_cleaner(dishwasher), action(clean(dirty_plate, dishwasher), T)}",
+        "fact_set": "{holding(dirty_plate, T), robot_at(dishwasher, T), is_cleaner(dishwasher), action(clean(dirty_plate, dishwasher), T)}",
         "expert_rule": ":- action(clean(O, L), T), not holding(O, T).",
         "action_type": "clean_precondition2",
         "positive": "true",
@@ -540,7 +529,7 @@
     },
     {
         "episode": "The robot tries to clean a dirty shirt in the washing machine without picking it up first.",
-        "fact_set": "{not holding(dirty_shirt, T), robot_at(laundry_room, T), is_cleaner(washing_machine), action(clean(dirty_shirt, washing_machine), T)}",
+        "fact_set": "{not holding(dirty_shirt, T), robot_at(washing_machine, T), is_cleaner(washing_machine), action(clean(dirty_shirt, washing_machine), T)}",
         "expert_rule": ":- action(clean(O, L), T), not holding(O, T).",
         "action_type": "clean_precondition2",
         "positive": "false",
@@ -550,25 +539,113 @@
         "reference": "store brownies, clean a book, baking sugar cookies"
     },
     {
-        "episode": "The robot, in the kitchen, puts a warm soda can into the refrigerator to cool it.",
-        "fact_set": "{holding(warm_soda, T), robot_at(kitchen, T), is_cooler(refrigerator), action(cool(warm_soda, refrigerator), T)}",
-        "expert_rule": ":- action(cool(_, L), T), not robot_at(L, T).",
-        "action_type": "cool_precondition3",
+        "episode": "The robot puts a book into an open drawer.",
+        "fact_set": "{holding(book, T), openable(drawer), is_open(drawer, T), robot_at(drawer, T), action(put_down(book, drawer), T)}",
+        "expert_rule": ":- action(put_down(O, L), T), openable(L), not is_open(L, T).",
+        "action_type": "put_down_openable",
         "positive": "true",
-        "task": "prepare cold drink",
+        "task": "organize study",
+        "scene": "Beechwood_0_int",
+        "embodiment": "robot",
+        "reference": "clean a hot water dispenser, freeze lasagna"
+    },
+    {
+        "episode": "The robot places a dirty plate in the open dishwasher.",
+        "fact_set": "{holding(dirty_plate, T), openable(dishwasher), is_open(dishwasher, T), robot_at(dishwasher, T), action(put_down(dirty_plate, dishwasher), T)}",
+        "expert_rule": ":- action(put_down(O, L), T), openable(L), not is_open(L, T).",
+        "action_type": "put_down_openable",
+        "positive": "true",
+        "task": "load dishwasher",
+        "scene": "Pomaria_1_int",
+        "embodiment": "robot",
+        "reference": "store brownies, clean a book, baking sugar cookies"
+    },
+    {
+        "episode": "The robot puts a folded towel into an open laundry basket.",
+        "fact_set": "{holding(folded_towel, T), openable(laundry_basket), is_open(laundry_basket, T), robot_at(laundry_basket, T), action(put_down(folded_towel, laundry_basket), T)}",
+        "expert_rule": ":- action(put_down(O, L), T), openable(L), not is_open(L, T).",
+        "action_type": "put_down_openable",
+        "positive": "true",
+        "task": "organize laundry",
         "scene": "Wainscott_1_int",
         "embodiment": "robot",
         "reference": "decorating for religious ceremony, stash snacks in your room, disinfect laundry"
     },
     {
-        "episode": "The robot, in the living room, tries to cool a hot pizza in the kitchen refrigerator.",
-        "fact_set": "{holding(hot_pizza, T), robot_at(living_room, T), is_cooler(refrigerator), action(cool(hot_pizza, refrigerator), T)}",
-        "expert_rule": ":- action(cool(_, L), T), not robot_at(L, T).",
-        "action_type": "cool_precondition3",
+        "episode": "The robot attempts to put a mug into a closed cabinet.",
+        "fact_set": "{holding(mug, T), openable(cabinet), not is_open(cabinet, T), robot_at(cabinet, T), action(put_down(mug, cabinet), T)}",
+        "expert_rule": ":- action(put_down(O, L), T), openable(L), not is_open(L, T).",
+        "action_type": "put_down_openable",
         "positive": "false",
-        "task": "cool down food",
+        "task": "organize kitchen",
         "scene": "Ihlen_0_int",
         "embodiment": "robot",
         "reference": "de-clutter your garage, sorting household items, set up a home office in your garage"
+    },
+    {
+        "episode": "The robot tries to place a book into a closed bookshelf with doors.",
+        "fact_set": "{holding(book, T), openable(bookshelf), not is_open(bookshelf, T), robot_at(bookshelf, T), action(put_down(book, bookshelf), T)}",
+        "expert_rule": ":- action(put_down(O, L), T), openable(L), not is_open(L, T).",
+        "action_type": "put_down_openable",
+        "positive": "false",
+        "task": "organize library",
+        "scene": "Benevolence_1_int",
+        "embodiment": "robot",
+        "reference": "hanging blinds, sorting volunteer materials, wash baby bottles"
+    },
+    {
+        "episode": "The robot retrieves a book from an open bookcase.",
+        "fact_set": "{openable(bookcase), is_open(bookcase, T), at(book, bookcase, T), robot_at(bookcase, T), action(pick_up(book, bookcase), T)}",
+        "expert_rule": ":- action(pick_up(O, L), T), openable(L), not is_open(L, T).",
+        "action_type": "pick_up_openable",
+        "positive": "true",
+        "task": "fetch book",
+        "scene": "Beechwood_0_int",
+        "embodiment": "robot",
+        "reference": "clean a hot water dispenser, freeze lasagna"
+    },
+    {
+        "episode": "The robot takes a clean plate from the open dishwasher.",
+        "fact_set": "{openable(dishwasher), is_open(dishwasher, T), at(clean_plate, dishwasher, T), robot_at(dishwasher, T), action(pick_up(clean_plate, dishwasher), T)}",
+        "expert_rule": ":- action(pick_up(O, L), T), openable(L), not is_open(L, T).",
+        "action_type": "pick_up_openable",
+        "positive": "true",
+        "task": "unload dishwasher",
+        "scene": "Pomaria_1_int",
+        "embodiment": "robot",
+        "reference": "store brownies, clean a book, baking sugar cookies"
+    },
+    {
+        "episode": "The robot retrieves a tool from an open toolbox.",
+        "fact_set": "{openable(toolbox), is_open(toolbox, T), at(screwdriver, toolbox, T), robot_at(toolbox, T), action(pick_up(screwdriver, toolbox), T)}",
+        "expert_rule": ":- action(pick_up(O, L), T), openable(L), not is_open(L, T).",
+        "action_type": "pick_up_openable",
+        "positive": "true",
+        "task": "home maintenance",
+        "scene": "Wainscott_1_int",
+        "embodiment": "robot",
+        "reference": "decorating for religious ceremony, stash snacks in your room, disinfect laundry"
+    },
+    {
+        "episode": "The robot tries to take a shirt from a closed wardrobe.",
+        "fact_set": "{openable(wardrobe), not is_open(wardrobe, T), at(shirt, wardrobe, T), robot_at(wardrobe, T), action(pick_up(shirt, wardrobe), T)}",
+        "expert_rule": ":- action(pick_up(O, L), T), openable(L), not is_open(L, T).",
+        "action_type": "pick_up_openable",
+        "positive": "false",
+        "task": "select outfit",
+        "scene": "Ihlen_0_int",
+        "embodiment": "robot",
+        "reference": "de-clutter your garage, sorting household items, set up a home office in your garage"
+    },
+    {
+        "episode": "The robot attempts to retrieve food from a closed refrigerator.",
+        "fact_set": "{openable(refrigerator), not is_open(refrigerator, T), at(food, refrigerator, T), robot_at(refrigerator, T), action(pick_up(food, refrigerator), T)}",
+        "expert_rule": ":- action(pick_up(O, L), T), openable(L), not is_open(L, T).",
+        "action_type": "pick_up_openable",
+        "positive": "false",
+        "task": "prepare meal",
+        "scene": "Benevolence_1_int",
+        "embodiment": "robot",
+        "reference": "hanging blinds, sorting volunteer materials, wash baby bottles"
     }
 ]

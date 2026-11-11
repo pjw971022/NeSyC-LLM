@@ -19,8 +19,8 @@ holding(O, T)
 is_heated(O, T)
 is_cooled(O, T)
 is_cleaned(O, T)
-is_looked(O, T)
-is_opened(O, T)
+is_looked(O1, O2, T)
+is_open(L, T)
 
 is_heater(L)
 is_cooler(L)
@@ -33,8 +33,8 @@ action(heat(O, L), T)
 action(cool(O, L), T)
 action(clean(O, L), T)
 action(use(O), T)
-action(open(O), T)
-action(close(O), T)
+action(open(L), T)
+action(close(L), T)
 openable(L)
 cleanable(O)
 coolable(O)
@@ -44,8 +44,9 @@ sliceable(O)
 ########
 1. Read the above predicates and the Parameter description.
 2. Create a fact set from the External Trajectories.
+3. Locations are the places the action names: robot_at must use the same location L as the action, not the room.
 
 External Trajectory: The robot tries to warm up a bowl of soup by putting it in front of a running fan in the bedroom.
 Target predicate: action(heat(O, L), T)
-Fact set: {not is_heater(fan), holding(soup_bowl, T), robot_at(bedroom, T), action(heat(soup_bowl, fan), T)}
+Fact set: {not is_heater(fan), holding(soup_bowl, T), robot_at(fan, T), action(heat(soup_bowl, fan), T)}
 

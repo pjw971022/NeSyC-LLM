@@ -1,0 +1,8 @@
+alfworld==0.3.5
+clingo==5.7.1
+openai>=1.40
+numpy==1.26.4
+pandas==2.2.2
+tabulate
+pyyaml
+pytest

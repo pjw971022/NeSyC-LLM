@@ -30,12 +30,19 @@ def calculate_matching_degree(predict, expert_plan):
     return matching_count / len(expert_plan)
 
 import random
+import re
 class CustomRewardWrapper(textworld.core.Wrapper):
     def __init__(self, env):
         super().__init__(env)
         self.goal = ''
+        self.opened = set()  # receptacles the agent has opened in this episode
+        self.cleaned = set()  # objects it has cleaned
         # self.random_db_update_step = random.randint(1, 3)
         # self.random_instr_update_step = random.randint(1, 3)
+
+    def reset(self):
+        self.opened, self.cleaned = set(), set()
+        return super().reset()
 
     def step(self, action_info: dict):
         ##### Preprocessing #####
@@ -45,8 +52,28 @@ class CustomRewardWrapper(textworld.core.Wrapper):
                 if random.random() < 0.3:
                     action_info['command'] = 'moving error'
         
+        # Hard tasks: preconditions the demonstrations never show. The listed verbs need the appliance door open
+        # (needs_open), an object that was cleaned earlier in the episode (needs_clean) or one that was not
+        # (not_clean); with one_door nothing can be opened while another door is open.
+        verb, _, rest = action_info['command'].partition(' ')
+        obj, _, recep = rest.partition(' with ')
+        if ((verb in action_info.get('needs_open', []) and recep not in self.opened)
+                or (verb in action_info.get('needs_clean', []) and obj not in self.cleaned)
+                or (verb in action_info.get('not_clean', []) and obj in self.cleaned)
+                or (action_info.get('one_door') and verb == 'open' and self.opened)):
+            action_info['command'] = 'house rule'  # not a command, so nothing happens
+
         ##### Postprocessing #####
         game_state, score, done = super().step(action_info['command'])
+        happened = re.match(r'You (open|close|clean) the (\w+ \d+)', game_state['feedback'])
+        if happened:
+            what, name = happened.groups()
+            if what == 'clean':
+                self.cleaned.add(name)
+            elif what == 'open':
+                self.opened.add(name)
+            else:
+                self.opened.discard(name)
         if 'No ' in action_info['command']:
             done = True
         if 'stop' in action_info['command']:
@@ -66,12 +93,12 @@ class CustomRewardWrapper(textworld.core.Wrapper):
                 game_state['feedback'] += '\nError: The robot has encountered an error while moving.'
                 
             if step_num == action_info['db_update_num']:
-                locs = action_info['low_perturb_locations'].replace('0', f'{step_num}')
+                locs = re.sub(r', 0\)\.', f', {step_num}).', action_info['low_perturb_locations'])  # only the time argument
                 game_state['feedback'] += f'\nDatabase update:\n{locs}'
 
         elif action_info['dynamics_type'] == 'low_non_stationary':
             if step_num == action_info['db_update_num']:
-                locs = action_info['low_perturb_locations'].replace('0', f'{step_num}')
+                locs = re.sub(r', 0\)\.', f', {step_num}).', action_info['low_perturb_locations'])  # only the time argument
                 game_state['feedback'] += f'\nDatabase update:\n{locs}'
 
         return game_state, score, done
