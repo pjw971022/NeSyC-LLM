@@ -4,7 +4,7 @@ import json
 from Alfworld import llm_utils
 from Alfworld.baselines import ReActAgent, retrieve
 from Alfworld import our_pipeline as op
-from Alfworld.data.base.base_program import BASE_ASP_PROGRAM
+from Alfworld.data.base.base_program import BASE_ASP_PROGRAM, PHYSICS
 from Alfworld.our_pipeline import ALPHA, Pipeline, extract_rules, interpret, load_demos
 from utils import parse_answer_set
 
@@ -201,3 +201,68 @@ def test_rule_guidelines_reach_the_prompt_only_with_hints(monkeypatch):
     p.hints = True
     p.gen_hypotheses(p.demos[:2], 'action(pick_up(O, L), T)', '')
     assert 'Guidelines' not in prompts[1] and 'Guidelines' in prompts[3]
+
+
+def test_with_physics_the_planner_knows_that_chilling_removes_heat_and_heating_removes_cold():
+    p = Pipeline()
+    room = ('location(fridge_1). location(microwave_1). location(counter_1). is_cooler(fridge_1). is_heater(microwave_1). '
+            'object(potato_1). is_potato(potato_1). heatable(potato_1). coolable(potato_1). at(potato_1, counter_1, 0).')
+    rules = '\n'.join(EXPERT + [':- action(put_down(O, L), T), not holding(O, T).'])
+    def first_plan(goal):
+        models = p.gen_answer_set('\n'.join([BASE_ASP_PROGRAM.replace('{max_step}', '8'), PHYSICS, room, goal, rules]))
+        return sorted(parse_answer_set(models[0])) if models else None
+    # hot and then chilled is not hot any more; chilled and then heated is not cold any more
+    assert first_plan('goal(T) :- is_heated(O, T), is_cooled(O, T), is_potato(O).') is None
+    plan = first_plan('goal(T) :- is_cooled(O, T), is_potato(O), at(O, fridge_1, T).')
+    assert not any(a.startswith('heat') for _, a in plan)
+
+
+def test_plus_lets_the_rule_prompt_use_the_type_predicates_of_the_examples(monkeypatch):
+    prompts = stub_llm(monkeypatch, lambda p: '')
+    p = pipeline()
+    p.prompt['rule_hints'] = 'Guidelines.'
+    example = {'text': '{robot_at(coffeemachine_1, 5), holding(potato_1, 5), is_coffeemachine(coffeemachine_1), '
+                       'is_potato(potato_1), action(put_down(potato_1, coffeemachine_1), 5)}', 'positive': False}
+    p.gen_hypotheses([example], 'action(put_down(O, L), T)', '')
+    p.plus = p.hints = True
+    p.gen_hypotheses([example], 'action(put_down(O, L), T)', '')
+    assert 'is_coffeemachine' not in prompts[1].split('Positive/Negative Examples')[0]
+    allowed = prompts[3].split('Positive/Negative Examples')[0]
+    assert 'is_coffeemachine(X)' in allowed and 'is_potato(X)' in allowed and 'Guidelines.' in allowed
+
+
+def test_with_physics_doors_start_closed_and_closing_closes():
+    p = Pipeline()
+    room = ('location(fridge_1). location(counter_1). openable(fridge_1). is_fridge(fridge_1). '
+            'object(egg_1). is_egg(egg_1). at(egg_1, fridge_1, 0).')
+    rules = '\n'.join(EXPERT + [':- action(put_down(O, L), T), not holding(O, T).'])
+    def plan(goal):
+        models = p.gen_answer_set('\n'.join([BASE_ASP_PROGRAM.replace('{max_step}', '8'), PHYSICS, room, goal, rules]))
+        return [a for _, a in sorted(parse_answer_set(models[0]))] if models else None
+    assert plan('goal(T) :- holding(O, T), is_egg(O).')[:2] == ['go to fridge 1', 'open fridge 1']
+    assert 'open fridge 1' in plan('goal(T) :- holding(O, T), is_egg(O), not is_open(fridge_1, T), T > 4.')
+
+
+def test_plus_counts_earlier_failures_as_evidence_from_the_current_environment(monkeypatch):
+    washed = ':- action(cool(O, L), T), not is_cleaned(O, T).'  # contradicts the demos, which chill unwashed food
+    door = ':- action(cool(O, L), T), openable(L), not is_open(L, T).'
+    stub_llm(monkeypatch, lambda p: '' if 'Make Constraint Rules' not in p else door if 'is_cleaned(mug_1,7)' in p else washed)
+    p = pipeline()
+    p.plus = True
+    common = ['robot_at(fridge_1,{t})', 'holding(mug_1,{t})', 'is_cooler(fridge_1)', 'openable(fridge_1)', 'cleanable(mug_1)',
+              'action(cool(mug_1,fridge_1),{t})']
+    p.remember([a.format(t=3) for a in common] + ['is_open(fridge_1,3)'], 3, ok=False)
+    p.refine()
+    p.remember([a.format(t=7) for a in common] + ['is_cleaned(mug_1,7)'], 7, ok=False)
+    p.refine()
+    assert washed in p.rules and door in p.rules
+
+
+def test_a_rule_with_an_aggregate_can_still_be_doubted():
+    crowded = ':- action(pick_up(O, L), T), #count{ X : at(X, L, T) } > 1.'  # wrong: forbids the only plan
+    p = Pipeline()
+    p.asp_program = BASE_ASP_PROGRAM.replace('{max_step}', '6')
+    p.init_state, p.goal_state = ROOM + 'at(mug_1, sink_1, 0). at(mug_2, sink_1, 0).', GOAL
+    p.rules = EXPERT + [':- action(put_down(O, L), T), not holding(O, T).', crowded]
+    p.revise, p.learned = True, {crowded}
+    assert p.eval_single_plan({})

@@ -135,8 +135,8 @@ step(0..max_steps).
 
 % State inertia
 at(O, L, T+1) :- at(O, L, T), not action(pick_up(O, _), T), step(T+1).
-is_heated(O, T+1) :- is_heated(O, T), step(T+1).
-is_cooled(O, T+1) :- is_cooled(O, T), step(T+1).
+is_heated(O, T+1) :- is_heated(O, T), not cools(O, T), step(T+1).  % cools/heats: only defined by PHYSICS
+is_cooled(O, T+1) :- is_cooled(O, T), not heats(O, T), step(T+1).
 is_cleaned(O, T+1) :- is_cleaned(O, T), step(T+1).
 is_looked(O1, O2, T+1) :- is_looked(O1, O2, T), step(T+1).
 is_open(L, T+1) :- is_open(L, T), not action(close(L), T), step(T+1).
@@ -189,4 +189,15 @@ holding(O, T+1) :- holding(O, T), not action(put_down(O, _), T), step(T+1).
 location(middle_of_room).
 robot_at(middle_of_room, 0).
 #show action/2.
+'''
+# --plus: effects as in ALFWorld's PDDL that the program above leaves open: chilling removes heat, heating removes
+# cold, closing closes, and receptacles start closed. Off by default because it changes which plans are chosen,
+# so runs made without it would no longer replay.
+PHYSICS = '''
+cools(O, T) :- action(cool(O, _), T).
+heats(O, T) :- action(heat(O, _), T).
+:- is_heated(O, T+1), cools(O, T).
+:- is_cooled(O, T+1), heats(O, T).
+:- is_open(L, T+1), action(close(L), T).
+:- is_open(L, 0).
 '''

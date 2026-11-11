@@ -149,6 +149,7 @@ class Pipeline:
         self.continual = False  # keep the rules learned in one episode for the next ones
         self.revise = False     # extension, not in the paper: learned rules can be broken and retracted
         self.hints = False      # extension, not in the paper: general guidelines in the rule prompt
+        self.plus = False       # extension: type predicates in the rule prompt, runtime experience weighted as M
         self.learned = set()    # rules added by refine() (tracked with revise)
         self.recent = []        # failed transitions of the current episode
         self.max_steps = MAX_STEP_NUM
@@ -186,6 +187,12 @@ class Pipeline:
         shown = ''.join(f"{'Positive' if e['positive'] else 'Negative'}: {e['text']}\n" for e in examples)
         bk = self.llm(f"{self.prompt['general_bk']}\nPositive/Negative Examples:\n{shown}Make Background knowledge.\n")
         hints = f"\n{self.prompt['rule_hints']}" if self.hints else ''
+        if self.plus:  # let a failure be explained with the object and receptacle types it involves
+            literals = [x.strip() for e in examples for x in re.split(r',\s*(?![^()]*\))', e['text'].strip('{}'))]
+            extra = sorted({re.sub(r'^not\s+', '', x).split('(')[0] for x in literals if '(' in x}
+                           - set(re.findall(r'^(\w+)\(', self.prompt['general_rule'], re.M)) - {'action', 'not'})
+            if extra:
+                hints += '\nPredicates from the examples that may also be used:\n' + '\n'.join(f'{n}(X)' for n in extra)
         return extract_rules(self.llm(
             f"{self.prompt['general_rule']}{hints}\nFeedback:\n{feedback or 'None'}\n\nPositive/Negative Examples:\n{shown}\n"
             f"Background Knowledge:\n{bk}\n\nTarget Predicate:\n{target}\n\nMake Constraint Rules.\n"))
@@ -246,7 +253,9 @@ class Pipeline:
         target = self.memory[-1]['target']
         batch = [e for e in seen + self.memory if e['target'] == target]
         known = set(self.rules)
-        self.rules = self.reformulate(seen, self.memory, self.rules, [(target, batch)])
+        # --plus: everything experienced at run time is from the current environment (M), only the demos are T
+        E_T, E_M = (self.demos, self.experience + self.memory) if self.plus else (seen, self.memory)
+        self.rules = self.reformulate(E_T, E_M, self.rules, [(target, batch)])
         if self.revise:
             self.learned = (self.learned | set(self.rules) - known) & set(self.rules)
         self.experience += self.memory
@@ -284,7 +293,8 @@ class Pipeline:
     def program(self, step, soft):
         """The planning program; rules in `soft` become weak constraints, broken as rarely as possible."""
         def weak(i, rule):  # priority 3: fewer broken rules beats fewer actions; one violation per binding
-            terms = ''.join(f', {v}' for v in dict.fromkeys(re.findall(r'\b[A-Z]\w*', rule)))
+            outside = re.sub(r'\{[^}]*\}', '', rule)  # variables local to an aggregate cannot be terms
+            terms = ''.join(f', {v}' for v in dict.fromkeys(re.findall(r'\b[A-Z]\w*', outside)))
             return f':~{rule[2:-1]}. [1@3, {i}{terms}]'
 
         rules = [weak(i, r) if r in soft else r for i, r in enumerate(self.rules)]
