@@ -150,6 +150,7 @@ class Pipeline:
         self.revise = False     # extension, not in the paper: learned rules can be broken and retracted
         self.hints = False      # extension, not in the paper: general guidelines in the rule prompt
         self.plus = False       # extension: type predicates in the rule prompt, runtime experience weighted as M
+        self.v2 = False         # extension: --plus, the robot is where it went, a stuck planner tests all learned rules
         self.learned = set()    # rules added by refine() (tracked with revise)
         self.recent = []        # failed transitions of the current episode
         self.max_steps = MAX_STEP_NUM
@@ -288,6 +289,9 @@ class Pipeline:
         doubt = {r for r in self.learned if all(solve(e['facts'] + r) for e in self.recent)}
         if not plans and doubt:
             plans = self.gen_answer_set(self.program(step, doubt))
+        # --v2: still none, so a failure that seemed to confirm a learned rule had another cause; test them all
+        if not plans and self.v2 and self.learned - doubt:
+            plans = self.gen_answer_set(self.program(step, self.learned))
         return plans
 
     def program(self, step, soft):
@@ -298,4 +302,7 @@ class Pipeline:
             return f':~{rule[2:-1]}. [1@3, {i}{terms}]'
 
         rules = [weak(i, r) if r in soft else r for i, r in enumerate(self.rules)]
-        return '\n'.join([self.asp_program, self.init_state, self.dynamic_facts, self.goal_state, f'now({step}).', *rules])
+        failed = [f'failed({a}, {t}).' for e in self.recent if self.v2  # --v2: see V2 in base_program.py
+                  for a, t in re.findall(r'\baction\((\w+\([^()]*\)),\s*(\d+)\)\.', e['facts'])]
+        return '\n'.join([self.asp_program, self.init_state, self.dynamic_facts, self.goal_state, f'now({step}).',
+                          *rules, *failed])

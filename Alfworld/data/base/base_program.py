@@ -201,3 +201,24 @@ heats(O, T) :- action(heat(O, _), T).
 :- is_open(L, T+1), action(close(L), T).
 :- is_open(L, 0).
 '''
+# --v2, two additions to the planner:
+# 1. Going somewhere puts the robot there. The program above lets it stay put, and the observation parser drops
+#    "You arrive at", so a plan could open the fridge from the countertop and learn from a failure it misread.
+#    go_to(middle_of_room) stays a no-op: it is how a failed action is recorded.
+# 2. The world is deterministic, so an action that failed (failed/2, one fact per failure of this episode) is not
+#    planned again until the believed state has changed; the robot location counts, going back to the same place
+#    does not.
+V2 = '''
+robot_at(L, T+1) :- action(go_to(L), T), L != middle_of_room, step(T+1).
+changed(T1, T) :- failed(_, T1), step(T), robot_at(L, T1), not robot_at(L, T).
+changed(T1, T) :- failed(_, T1), step(T), holding(O, T1), not holding(O, T).
+changed(T1, T) :- failed(_, T1), step(T), holding(O, T), not holding(O, T1).
+changed(T1, T) :- failed(_, T1), step(T), at(O, L, T1), not at(O, L, T).
+changed(T1, T) :- failed(_, T1), step(T), at(O, L, T), not at(O, L, T1).
+changed(T1, T) :- failed(_, T1), step(T), is_open(L, T1), not is_open(L, T).
+changed(T1, T) :- failed(_, T1), step(T), is_open(L, T), not is_open(L, T1).
+changed(T1, T) :- failed(_, T1), step(T), is_cleaned(O, T), not is_cleaned(O, T1).
+changed(T1, T) :- failed(_, T1), step(T), is_heated(O, T), not is_heated(O, T1).
+changed(T1, T) :- failed(_, T1), step(T), is_cooled(O, T), not is_cooled(O, T1).
+:- failed(A, T1), action(A, T), T > T1, not changed(T1, T).
+'''
