@@ -28,7 +28,8 @@ def llm(prompt, model_name, temperature=0.0, max_tokens=256):
             cache = json.load(f)
     if key not in cache:
         cache[key] = {'prompt': prompt, 'response': _request(prompt, model_name, temperature, max_tokens)}
-        with opener(CACHE_PATH + '.tmp', 'wt') as f:  # lean: rewrites the whole file per new answer; sqlite past ~10k calls
+        tmp = f'{CACHE_PATH}.{os.getpid()}.tmp'
+        with opener(tmp, 'wt') as f:  # lean: rewrites the whole file per new answer; sqlite past ~10k calls
             json.dump(cache, f, indent=1)
-        os.replace(CACHE_PATH + '.tmp', CACHE_PATH)  # atomic, so an interrupt cannot truncate the cache
+        os.replace(tmp, CACHE_PATH)  # atomic, so an interrupt cannot truncate the cache
     return cache[key]['response']

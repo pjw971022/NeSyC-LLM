@@ -43,9 +43,10 @@ def save_error_log(dynamics_type, name, goal, goal_state, adapted_rules, predict
 
     existing_data.append(log_entry)
 
-    with open(file_path + ".tmp", "w") as f:  # atomic, so a parallel run never reads a half-written log
+    tmp = f"{file_path}.{os.getpid()}.tmp"  # atomic, so a parallel run never reads a half-written log
+    with open(tmp, "w") as f:
         json.dump(existing_data, f, indent=4)
-    os.replace(file_path + ".tmp", file_path)
+    os.replace(tmp, file_path)
 
     print(f"Error log saved to {file_path}")
 
