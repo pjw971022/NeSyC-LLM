@@ -177,3 +177,27 @@ def test_react_memory_shows_lessons_of_earlier_episodes_in_every_later_one():
     agent.note(solved=False)
     agent.start('kitchen-2', 'Your task is to: heat a potato.')
     assert '- Open the microwave before heating.' in agent.prompt
+
+
+def test_with_revise_a_wrong_learned_rule_is_broken_instead_of_leaving_no_plan_and_then_dropped():
+    wrong = ':- action(put_down(O, L), T), is_shelf(L).'  # forbids the only way to reach the goal
+    p = Pipeline()
+    p.asp_program = BASE_ASP_PROGRAM.replace('{max_step}', '6')
+    p.init_state, p.goal_state = ROOM + 'at(mug_1, sink_1, 0).', GOAL
+    p.rules = EXPERT + [':- action(put_down(O, L), T), not holding(O, T).', wrong]
+    assert p.eval_single_plan({}) == []
+    p.revise, p.learned = True, {wrong}
+    plans = p.eval_single_plan({})
+    last = max(step for step, _ in parse_answer_set(plans[0]))
+    p.remember(plans[0], last, ok=True)  # the put_down that the rule forbade worked
+    assert wrong not in p.rules and not p.learned
+
+
+def test_rule_guidelines_reach_the_prompt_only_with_hints(monkeypatch):
+    prompts = stub_llm(monkeypatch, lambda p: '')
+    p = pipeline()
+    p.prompt['rule_hints'] = 'Guidelines: compare with the successful ones.'
+    p.gen_hypotheses(p.demos[:2], 'action(pick_up(O, L), T)', '')
+    p.hints = True
+    p.gen_hypotheses(p.demos[:2], 'action(pick_up(O, L), T)', '')
+    assert 'Guidelines' not in prompts[1] and 'Guidelines' in prompts[3]

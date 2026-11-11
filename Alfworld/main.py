@@ -18,6 +18,7 @@ PROMPTS = {
     'general_bk': './Alfworld/ours_prompts/general/ILP_bk.txt',
     'general_rule': './Alfworld/ours_prompts/general/ILP_rule.txt',
     'goal': './Alfworld/ours_prompts/adapt/goal_state_ours.txt',
+    'rule_hints': './Alfworld/ours_prompts/general/rule_hints.txt',
 }
 
 
@@ -36,7 +37,7 @@ def setup_pipeline(args):
     pipeline.asp_program = BASE_ASP_PROGRAM.replace('{max_step}', str(pipeline.max_steps))
     pipeline.clingo_seed = args.seed
     engine = re.sub(r'[^\w.-]', '_', args.engine)  # model ids may contain '/' or ':'
-    pipeline.rule_save_path = args.rule_path or f'./Alfworld/data/ilp_rule_{engine}.txt'
+    pipeline.rule_save_path = args.rule_path or f'./Alfworld/data/ilp_rule_{engine}{"_hints" if args.hints else ""}.txt'
     pipeline.load_prompt(PROMPTS)
     pipeline.demos = load_demos(pipeline.parse_demo)
     return pipeline
@@ -102,6 +103,8 @@ def main():
     parser.add_argument('--mode', type=str, default='base', help='base | noisy | incomplete')
     parser.add_argument('--hard', nargs='?', const='./Alfworld/data/hard_task.json', help='run the hard task(s) of this file')
     parser.add_argument('--continual', action='store_true', help='keep the rules learned in one episode for the next ones')
+    parser.add_argument('--revise', action='store_true', help='extension: learned rules can be broken and retracted')
+    parser.add_argument('--hints', action='store_true', help='extension: three general guidelines in the rule prompt')
     parser.add_argument('--asp', action='store_true', help='use ASP solver')
     parser.add_argument('--ilp', action='store_true', help='use ILP rules')
     args = parser.parse_args()

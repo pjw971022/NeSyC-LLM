@@ -43,8 +43,9 @@ def save_error_log(dynamics_type, name, goal, goal_state, adapted_rules, predict
 
     existing_data.append(log_entry)
 
-    with open(file_path, "w") as f:
+    with open(file_path + ".tmp", "w") as f:  # atomic, so a parallel run never reads a half-written log
         json.dump(existing_data, f, indent=4)
+    os.replace(file_path + ".tmp", file_path)
 
     print(f"Error log saved to {file_path}")
 
@@ -116,6 +117,7 @@ def run_alfworld(
             missing_paraphrased_goal = paraphrased_goal
         if method == 'ours' and pipeline.mode != 'complete' and not (pipeline.continual and results):
             pipeline.rules = load_rules(pipeline.rule_save_path)  # R is reset for every episode
+            pipeline.learned = set()
         if not paraphrased_goal:
             print(f"Instruction for task '{name}' not found. Skipping...")
             continue

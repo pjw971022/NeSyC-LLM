@@ -147,6 +147,10 @@ class Pipeline:
         self.hard_tasks = []   # tasks of the file given with --hard
         self.hard_task = None  # the one being run
         self.continual = False  # keep the rules learned in one episode for the next ones
+        self.revise = False     # extension, not in the paper: learned rules can be broken and retracted
+        self.hints = False      # extension, not in the paper: general guidelines in the rule prompt
+        self.learned = set()    # rules added by refine() (tracked with revise)
+        self.recent = []        # failed transitions of the current episode
         self.max_steps = MAX_STEP_NUM
         self.prompt = {}
         self.engine = ''
@@ -160,7 +164,7 @@ class Pipeline:
     def clean(self):
         self.init_state = self.dynamic_facts = self.goal_state = ''
         self.experience = self.experience + self.memory if self.continual else []  # T keeps growing when continual
-        self.memory = []
+        self.memory, self.recent = [], []
 
     def load_prompt(self, kind_to_path):
         for kind, path in kind_to_path.items():
@@ -181,8 +185,9 @@ class Pipeline:
         """Hypothesis generator: background knowledge first (the subsumption rationale), then candidate constraints."""
         shown = ''.join(f"{'Positive' if e['positive'] else 'Negative'}: {e['text']}\n" for e in examples)
         bk = self.llm(f"{self.prompt['general_bk']}\nPositive/Negative Examples:\n{shown}Make Background knowledge.\n")
+        hints = f"\n{self.prompt['rule_hints']}" if self.hints else ''
         return extract_rules(self.llm(
-            f"{self.prompt['general_rule']}\nFeedback:\n{feedback or 'None'}\n\nPositive/Negative Examples:\n{shown}\n"
+            f"{self.prompt['general_rule']}{hints}\nFeedback:\n{feedback or 'None'}\n\nPositive/Negative Examples:\n{shown}\n"
             f"Background Knowledge:\n{bk}\n\nTarget Predicate:\n{target}\n\nMake Constraint Rules.\n"))
 
     def reformulate(self, E_T, E_M, rules, batches):
@@ -228,13 +233,22 @@ class Pipeline:
         self.memory.append({'text': '{' + ', '.join(shown) + '}', 'facts': ' '.join(f'{a}.' for a in atoms),
                             'positive': ok, 'batch': name, 'step': step,
                             'target': ACTION_PREDICATES.get(name, f'action({name}(L), T)')})
+        if not ok:
+            self.recent.append(self.memory[-1])
+        elif self.learned:  # a learned rule that fired on an action which worked is wrong
+            refuted = {r for r in self.learned if not solve(self.memory[-1]['facts'] + r)}
+            self.rules = [r for r in self.rules if r not in refuted]
+            self.learned -= refuted
 
     def refine(self):
         """Algorithm 2, lines 12-15: the last action failed, so re-enter Algorithm 1 with T and M, starting from R."""
         seen = self.demos + self.experience
         target = self.memory[-1]['target']
         batch = [e for e in seen + self.memory if e['target'] == target]
+        known = set(self.rules)
         self.rules = self.reformulate(seen, self.memory, self.rules, [(target, batch)])
+        if self.revise:
+            self.learned = (self.learned | set(self.rules) - known) & set(self.rules)
         self.experience += self.memory
         self.memory = []
 
@@ -260,5 +274,18 @@ class Pipeline:
             print(f"\n{'goal':=^40}\n{self.goal_state}\n{'':=^40}")
         if 'adapt_fact' in example:
             self.dynamic_facts += '\n' + '\n'.join(parse_act_obs(example['adapt_fact']))
-        return self.gen_answer_set('\n'.join(
-            [self.asp_program, self.init_state, self.dynamic_facts, self.goal_state, f'now({step}).', *self.rules]))
+        plans = self.gen_answer_set(self.program(step, set()))
+        # --revise: with no plan, doubt the learned rules that no failure of this episode supports
+        doubt = {r for r in self.learned if all(solve(e['facts'] + r) for e in self.recent)}
+        if not plans and doubt:
+            plans = self.gen_answer_set(self.program(step, doubt))
+        return plans
+
+    def program(self, step, soft):
+        """The planning program; rules in `soft` become weak constraints, broken as rarely as possible."""
+        def weak(i, rule):  # priority 3: fewer broken rules beats fewer actions; one violation per binding
+            terms = ''.join(f', {v}' for v in dict.fromkeys(re.findall(r'\b[A-Z]\w*', rule)))
+            return f':~{rule[2:-1]}. [1@3, {i}{terms}]'
+
+        rules = [weak(i, r) if r in soft else r for i, r in enumerate(self.rules)]
+        return '\n'.join([self.asp_program, self.init_state, self.dynamic_facts, self.goal_state, f'now({step}).', *rules])

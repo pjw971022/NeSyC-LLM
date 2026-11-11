@@ -45,6 +45,7 @@ ENGINE=<model id> bash Alfworld/script/hard.sh           # one hard task, see be
 ENGINE=<model id> bash Alfworld/script/hard_suite.sh     # six harder tasks in a row, see below
 ENGINE=<model id> bash Alfworld/script/hard_stream.sh    # eleven tasks with shared hidden rules, see below
 ENGINE=<model id> bash Alfworld/script/static.sh --method react       # baselines: react | reflexion | react_memory
+ENGINE=<model id> bash Alfworld/script/hard_stream.sh --hints --revise    # extensions, see below
 pytest                                                   # LLM-free checks
 ```
 
@@ -168,6 +169,52 @@ on it: eleven kitchens (a twelfth was dropped because it is unsolvable even with
 must end up hot and washed, and four hidden rules hold everywhere: doors must be open to heat or chill; only a
 washed object can be chilled; only one door may be open at a time; a washed object can no longer be heated (so
 washing first, the natural order, is a dead end for that potato).
+
+## Extensions (not in the paper)
+
+Two opt-in changes aimed at the failures above. Both are off by default, so every number above is the paper's
+method.
+
+- `--revise`: learned rules stay hard constraints, but when the planner finds no plan, the learned rules that no
+  failure of the current episode supports become weak constraints (broken as rarely as possible), and a learned
+  rule that fired on an action which then worked is deleted.
+- `--hints`: three general guidelines in the rule prompt (`ours_prompts/general/rule_hints.txt`): cover where the
+  robot must be, what it must hold and what state things must be in; a condition that also holds in a positive
+  example is not the cause; explain a failure by what differs from the successes. Stage 1 then writes
+  `ilp_rule_<model id>_hints.txt`.
+
+Measured on the hard stream with Claude Opus 5.5 (Fable's usage limit had been reached, so stage 1 was learned again
+with Opus and no run mixes models). The dev stream is the one whose failures were studied. The two validation
+streams were fixed before any run on them: kitchens are taken in a seeded order over the 44 eligible ones and kept
+if the planner solves them when given all the right rules (22 of the first 30 pass). Validation 1 was used once for
+`--revise`, so the hints were judged on validation 2.
+
+| | Dev | Validation 1 | Validation 2 |
+|---|---|---|---|
+| NeSyC | 0 / 11 | 0 / 11 | 0 / 11 |
+| NeSyC + `--revise` | 2 / 11 | 0 / 11 | |
+| NeSyC + `--hints` | 0 / 11 | | 0 / 11 |
+| NeSyC + `--hints --revise` | 0 / 11 | | 0 / 11 |
+
+Neither extension makes NeSyC succeed:
+
+- With Opus the paper's version already fails everywhere (with Fable it solved 4 / 11 dev kitchens).
+- The hints do what they target: stage 1 now covers where cooling and cleaning can happen (14 rules become 19).
+- What breaks the runs is a failure whose real cause the predicates cannot express. ALFWorld does not let a potato
+  be put on the coffee machine; the LLM turns that failure into a wrong rule, for example that a coolable object
+  can only be put down once it is cooled. The planner obeys it and chills the hot potato before storing it. The
+  base program has no effect "chilling removes heat", so the planner believes the goal is reached and stops.
+  No rule is broken, so `--revise` never doubts it. NeSyC learns preconditions only, never action effects, and
+  that is where these runs fail.
+- Given the right rules by a script, NeSyC and NeSyC + `--revise` both solve 10 / 11 dev kitchens; the eleventh
+  becomes unsolvable once the potato is washed before the agent knows that washed food cannot be heated.
+- The first version of `--revise`, fixed before its dev run (a rule learned from one failure could be broken for
+  the cost of 3 actions, two failures made it hard), retried a futile action 13 times once the goal was
+  unreachable. A scripted check found this before any LLM run and it was replaced by the version above.
+
+The runs replay from `llm_cache_claude-opus-5-5.json.gz` (dev, validation 1) and
+`llm_cache_claude-opus-5-5_val2.json.gz` (validation 2): kitchens with the same predicates get the same goal
+prompt, and the two streams' answers to it differ in literal order.
 
 ## Changes since `bad2329`
 

@@ -1,0 +1,530 @@
+[
+    {
+        "game": "pick_two_obj_and_place-Glassbottle-None-Shelf-1/trial_T20190907_122204_941737",
+        "instruction": "Rinse a mug, chill it and leave it in the coffee machine. Also store a potato in the fridge that is both hot and washed. When you are done, the fridge and the microwave must both be shut.",
+        "targets": [
+            "mug",
+            "potato",
+            "coffeemachine",
+            "sinkbasin",
+            "fridge",
+            "microwave"
+        ],
+        "goal": {
+            "placed": [
+                [
+                    "mug",
+                    "coffeemachine",
+                    [
+                        "isclean",
+                        "iscool"
+                    ]
+                ],
+                [
+                    "potato",
+                    "fridge",
+                    [
+                        "ishot",
+                        "isclean"
+                    ]
+                ]
+            ],
+            "closed": [
+                "fridge",
+                "microwave"
+            ]
+        },
+        "needs_open": [
+            "heat",
+            "cool"
+        ],
+        "needs_clean": [
+            "cool"
+        ],
+        "not_clean": [
+            "heat"
+        ],
+        "one_door": true,
+        "max_steps": 30
+    },
+    {
+        "game": "pick_cool_then_place_in_recep-Lettuce-None-CounterTop-1/trial_T20190908_042713_075616",
+        "instruction": "Rinse a mug, chill it and leave it in the coffee machine. Also store a potato in the fridge that is both hot and washed. When you are done, the fridge and the microwave must both be shut.",
+        "targets": [
+            "mug",
+            "potato",
+            "coffeemachine",
+            "sinkbasin",
+            "fridge",
+            "microwave"
+        ],
+        "goal": {
+            "placed": [
+                [
+                    "mug",
+                    "coffeemachine",
+                    [
+                        "isclean",
+                        "iscool"
+                    ]
+                ],
+                [
+                    "potato",
+                    "fridge",
+                    [
+                        "ishot",
+                        "isclean"
+                    ]
+                ]
+            ],
+            "closed": [
+                "fridge",
+                "microwave"
+            ]
+        },
+        "needs_open": [
+            "heat",
+            "cool"
+        ],
+        "needs_clean": [
+            "cool"
+        ],
+        "not_clean": [
+            "heat"
+        ],
+        "one_door": true,
+        "max_steps": 30
+    },
+    {
+        "game": "pick_cool_then_place_in_recep-Pot-None-DiningTable-21/trial_T20190909_004531_429065",
+        "instruction": "Rinse a mug, chill it and leave it in the coffee machine. Also store a potato in the fridge that is both hot and washed. When you are done, the fridge and the microwave must both be shut.",
+        "targets": [
+            "mug",
+            "potato",
+            "coffeemachine",
+            "sinkbasin",
+            "fridge",
+            "microwave"
+        ],
+        "goal": {
+            "placed": [
+                [
+                    "mug",
+                    "coffeemachine",
+                    [
+                        "isclean",
+                        "iscool"
+                    ]
+                ],
+                [
+                    "potato",
+                    "fridge",
+                    [
+                        "ishot",
+                        "isclean"
+                    ]
+                ]
+            ],
+            "closed": [
+                "fridge",
+                "microwave"
+            ]
+        },
+        "needs_open": [
+            "heat",
+            "cool"
+        ],
+        "needs_clean": [
+            "cool"
+        ],
+        "not_clean": [
+            "heat"
+        ],
+        "one_door": true,
+        "max_steps": 30
+    },
+    {
+        "game": "pick_clean_then_place_in_recep-Spatula-None-DiningTable-4/trial_T20190909_002804_564168",
+        "instruction": "Rinse a mug, chill it and leave it in the coffee machine. Also store a potato in the fridge that is both hot and washed. When you are done, the fridge and the microwave must both be shut.",
+        "targets": [
+            "mug",
+            "potato",
+            "coffeemachine",
+            "sinkbasin",
+            "fridge",
+            "microwave"
+        ],
+        "goal": {
+            "placed": [
+                [
+                    "mug",
+                    "coffeemachine",
+                    [
+                        "isclean",
+                        "iscool"
+                    ]
+                ],
+                [
+                    "potato",
+                    "fridge",
+                    [
+                        "ishot",
+                        "isclean"
+                    ]
+                ]
+            ],
+            "closed": [
+                "fridge",
+                "microwave"
+            ]
+        },
+        "needs_open": [
+            "heat",
+            "cool"
+        ],
+        "needs_clean": [
+            "cool"
+        ],
+        "not_clean": [
+            "heat"
+        ],
+        "one_door": true,
+        "max_steps": 30
+    },
+    {
+        "game": "pick_clean_then_place_in_recep-ButterKnife-None-DiningTable-16/trial_T20190909_114508_617301",
+        "instruction": "Rinse a mug, chill it and leave it in the coffee machine. Also store a potato in the fridge that is both hot and washed. When you are done, the fridge and the microwave must both be shut.",
+        "targets": [
+            "mug",
+            "potato",
+            "coffeemachine",
+            "sinkbasin",
+            "fridge",
+            "microwave"
+        ],
+        "goal": {
+            "placed": [
+                [
+                    "mug",
+                    "coffeemachine",
+                    [
+                        "isclean",
+                        "iscool"
+                    ]
+                ],
+                [
+                    "potato",
+                    "fridge",
+                    [
+                        "ishot",
+                        "isclean"
+                    ]
+                ]
+            ],
+            "closed": [
+                "fridge",
+                "microwave"
+            ]
+        },
+        "needs_open": [
+            "heat",
+            "cool"
+        ],
+        "needs_clean": [
+            "cool"
+        ],
+        "not_clean": [
+            "heat"
+        ],
+        "one_door": true,
+        "max_steps": 30
+    },
+    {
+        "game": "pick_cool_then_place_in_recep-Plate-None-Cabinet-27/trial_T20190906_173120_350651",
+        "instruction": "Rinse a mug, chill it and leave it in the coffee machine. Also store a potato in the fridge that is both hot and washed. When you are done, the fridge and the microwave must both be shut.",
+        "targets": [
+            "mug",
+            "potato",
+            "coffeemachine",
+            "sinkbasin",
+            "fridge",
+            "microwave"
+        ],
+        "goal": {
+            "placed": [
+                [
+                    "mug",
+                    "coffeemachine",
+                    [
+                        "isclean",
+                        "iscool"
+                    ]
+                ],
+                [
+                    "potato",
+                    "fridge",
+                    [
+                        "ishot",
+                        "isclean"
+                    ]
+                ]
+            ],
+            "closed": [
+                "fridge",
+                "microwave"
+            ]
+        },
+        "needs_open": [
+            "heat",
+            "cool"
+        ],
+        "needs_clean": [
+            "cool"
+        ],
+        "not_clean": [
+            "heat"
+        ],
+        "one_door": true,
+        "max_steps": 30
+    },
+    {
+        "game": "pick_and_place_simple-Tomato-None-Microwave-13/trial_T20190908_124829_632660",
+        "instruction": "Rinse a mug, chill it and leave it in the coffee machine. Also store a potato in the fridge that is both hot and washed. When you are done, the fridge and the microwave must both be shut.",
+        "targets": [
+            "mug",
+            "potato",
+            "coffeemachine",
+            "sinkbasin",
+            "fridge",
+            "microwave"
+        ],
+        "goal": {
+            "placed": [
+                [
+                    "mug",
+                    "coffeemachine",
+                    [
+                        "isclean",
+                        "iscool"
+                    ]
+                ],
+                [
+                    "potato",
+                    "fridge",
+                    [
+                        "ishot",
+                        "isclean"
+                    ]
+                ]
+            ],
+            "closed": [
+                "fridge",
+                "microwave"
+            ]
+        },
+        "needs_open": [
+            "heat",
+            "cool"
+        ],
+        "needs_clean": [
+            "cool"
+        ],
+        "not_clean": [
+            "heat"
+        ],
+        "one_door": true,
+        "max_steps": 30
+    },
+    {
+        "game": "pick_heat_then_place_in_recep-Tomato-None-Fridge-24/trial_T20190908_033721_967359",
+        "instruction": "Rinse a mug, chill it and leave it in the coffee machine. Also store a potato in the fridge that is both hot and washed. When you are done, the fridge and the microwave must both be shut.",
+        "targets": [
+            "mug",
+            "potato",
+            "coffeemachine",
+            "sinkbasin",
+            "fridge",
+            "microwave"
+        ],
+        "goal": {
+            "placed": [
+                [
+                    "mug",
+                    "coffeemachine",
+                    [
+                        "isclean",
+                        "iscool"
+                    ]
+                ],
+                [
+                    "potato",
+                    "fridge",
+                    [
+                        "ishot",
+                        "isclean"
+                    ]
+                ]
+            ],
+            "closed": [
+                "fridge",
+                "microwave"
+            ]
+        },
+        "needs_open": [
+            "heat",
+            "cool"
+        ],
+        "needs_clean": [
+            "cool"
+        ],
+        "not_clean": [
+            "heat"
+        ],
+        "one_door": true,
+        "max_steps": 30
+    },
+    {
+        "game": "pick_cool_then_place_in_recep-Apple-None-Microwave-19/trial_T20190906_210937_878489",
+        "instruction": "Rinse a mug, chill it and leave it in the coffee machine. Also store a potato in the fridge that is both hot and washed. When you are done, the fridge and the microwave must both be shut.",
+        "targets": [
+            "mug",
+            "potato",
+            "coffeemachine",
+            "sinkbasin",
+            "fridge",
+            "microwave"
+        ],
+        "goal": {
+            "placed": [
+                [
+                    "mug",
+                    "coffeemachine",
+                    [
+                        "isclean",
+                        "iscool"
+                    ]
+                ],
+                [
+                    "potato",
+                    "fridge",
+                    [
+                        "ishot",
+                        "isclean"
+                    ]
+                ]
+            ],
+            "closed": [
+                "fridge",
+                "microwave"
+            ]
+        },
+        "needs_open": [
+            "heat",
+            "cool"
+        ],
+        "needs_clean": [
+            "cool"
+        ],
+        "not_clean": [
+            "heat"
+        ],
+        "one_door": true,
+        "max_steps": 30
+    },
+    {
+        "game": "pick_cool_then_place_in_recep-Cup-None-SideTable-21/trial_T20190906_192823_237997",
+        "instruction": "Rinse a mug, chill it and leave it in the coffee machine. Also store a potato in the fridge that is both hot and washed. When you are done, the fridge and the microwave must both be shut.",
+        "targets": [
+            "mug",
+            "potato",
+            "coffeemachine",
+            "sinkbasin",
+            "fridge",
+            "microwave"
+        ],
+        "goal": {
+            "placed": [
+                [
+                    "mug",
+                    "coffeemachine",
+                    [
+                        "isclean",
+                        "iscool"
+                    ]
+                ],
+                [
+                    "potato",
+                    "fridge",
+                    [
+                        "ishot",
+                        "isclean"
+                    ]
+                ]
+            ],
+            "closed": [
+                "fridge",
+                "microwave"
+            ]
+        },
+        "needs_open": [
+            "heat",
+            "cool"
+        ],
+        "needs_clean": [
+            "cool"
+        ],
+        "not_clean": [
+            "heat"
+        ],
+        "one_door": true,
+        "max_steps": 30
+    },
+    {
+        "game": "pick_cool_then_place_in_recep-Apple-None-Microwave-5/trial_T20190908_150807_823817",
+        "instruction": "Rinse a mug, chill it and leave it in the coffee machine. Also store a potato in the fridge that is both hot and washed. When you are done, the fridge and the microwave must both be shut.",
+        "targets": [
+            "mug",
+            "potato",
+            "coffeemachine",
+            "sinkbasin",
+            "fridge",
+            "microwave"
+        ],
+        "goal": {
+            "placed": [
+                [
+                    "mug",
+                    "coffeemachine",
+                    [
+                        "isclean",
+                        "iscool"
+                    ]
+                ],
+                [
+                    "potato",
+                    "fridge",
+                    [
+                        "ishot",
+                        "isclean"
+                    ]
+                ]
+            ],
+            "closed": [
+                "fridge",
+                "microwave"
+            ]
+        },
+        "needs_open": [
+            "heat",
+            "cool"
+        ],
+        "needs_clean": [
+            "cool"
+        ],
+        "not_clean": [
+            "heat"
+        ],
+        "one_door": true,
+        "max_steps": 30
+    }
+]
