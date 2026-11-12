@@ -67,9 +67,9 @@ No API key was available, so the LLM was **Claude, called through Claude Code su
 recorded prompts. That is not a raw API call: temperature and the 256-token cap were not enforced, and one agent
 answered several prompts in a row (for the baselines, five games in a row, so it could carry knowledge from one game
 to the next). All prompts and answers ship in `Alfworld/data/llm_cache_*.json.gz`, and
-`bash Alfworld/script/replay.sh` replays all 45 runs below from them (about an hour on 20 cores) and fails if any
-success rate differs. The baselines were not run with Opus or Sonnet: the sub-agents answering the ReAct prompts
-were stopped by those models' safeguards.
+`bash Alfworld/script/replay.sh` replays all 72 runs below from them (one to two hours on 20 cores) and fails if any
+success rate differs. The baselines were not run with Opus or Sonnet, nor on validation 3–5: the sub-agents
+answering the ReAct prompts were stopped by those models' safeguards.
 
 Each table compares methods only within one model. Success is the number of episodes solved.
 
@@ -112,6 +112,20 @@ run on it, and each cell is one run):
 | NeSyC + `--plus` | 7 | 9 | 0 | 0 | 0 | 9 |
 | NeSyC + `--v2` | | 7 | | 8 | | 0 |
 
+**Validation 5: three hidden-rule sets, ten new kitchens each** (fixed before any run on them; one run per cell):
+
+| | Rules A (10) | Rules B (10) | Rules C (10) | Total (30) |
+|---|---|---|---|---|
+| Opus, NeSyC | 0 | 0 | 0 | 0 |
+| Opus, `--plus` | 5 | 5 | 0 | 10 |
+| Opus, `--v2` | 9 | 0 | 9 | 18 |
+| Sonnet, NeSyC | 0 | 0 | 0 | 0 |
+| Sonnet, `--plus` | 0 | 0 | 0 | 0 |
+| Sonnet, `--v2` | 0 | 9 | 9 | 18 |
+| Haiku, NeSyC | 0 | 0 | 0 | 0 |
+| Haiku, `--plus` | 0 | 0 | 10 | 10 |
+| Haiku, `--v2` | 0 | 8 | 10 | 18 |
+
 What these runs show:
 
 - **With the same model, NeSyC is ahead of the baselines in one place**: Haiku's hard suite, where `--v2` solves 3
@@ -121,12 +135,13 @@ What these runs show:
 - **NeSyC uses far fewer LLM calls**: one goal parse per game instead of one call per action, about 7 times fewer
   on the benchmark games and 10 to 30 times fewer on the stream.
 - **The paper's version solves no hidden-rule kitchen with Opus, Sonnet or Haiku**, on every stream it was run on.
-- **The extensions are what makes NeSyC work there, but which one depends on the model and the run.** On validation
-  4 `--plus` solves 9, 0 and 9 kitchens and `--v2` 7, 8 and 0 (Opus, Sonnet, Haiku); neither is better for every
-  model. When a version fails, it fails the same way: the LLM blames its first failures on the wrong condition and
-  the learned rules leave no plan or keep the agent retrying. With one run per cell, the gap between the two is
-  probably mostly which rule the LLM happens to guess first; repeated runs would be needed to tell.
-- The paper's gap (NeSyC far ahead of ReAct and Reflexion) does not appear in any run. Samples are small: 6–20
+- **The extensions are what makes NeSyC work there, and `--v2` does so more often.** Over the 120 held-out kitchens
+  of validation 4 and 5 (three models, four hidden-rule sets) the paper's version solves 0, `--plus` 38 and `--v2`
+  69. Per model and stream `--v2` is ahead in 6 of 12 cells, behind in 3 (Opus on validation 4, 9 → 7, and on
+  rules B, 5 → 0; Haiku on validation 4, 9 → 0) and tied in 3. Within a cell the outcome is close to all or
+  nothing: when a version fails, the LLM blamed its first failures on the wrong condition, and the learned rules
+  then leave no plan or keep the agent retrying the same action. One run per cell, so a single cell says little.
+- The paper's gap (NeSyC far ahead of ReAct and Reflexion) does not appear in any run. Samples are small: 6–30
   games per cell, one run each.
 
 Details behind the numbers:
@@ -169,8 +184,15 @@ success is scored.
   them when given all the right rules: 22 of the first 30 (validation 1 and 2), 10 of the last 14 (validation 3).
 - `hard_stream_test4.json` (validation 4, run with `--split train`): the first 15 eligible games of the training
   split in a seeded order (seed 2027), of which the planner solves 10 when given the right rules; the `--plus` and
-  `--v2` planners solve the same 10. It was fixed before any `--v2` run on it and has since been used for diagnosis,
-  so a further change needs new kitchens to be judged fairly (the training split has thousands).
+  `--v2` planners solve the same 10. It was fixed before any `--v2` run on it and has since been used for diagnosis.
+- `hard_stream_test5{a,b,c}.json` (validation 5, `--split train`): the next 45 eligible training games in a seeded
+  order (seed 2028), 15 per hidden-rule set, keeping the first 10 that both the `--plus` and the `--v2` planner
+  solve when given the right rules (11, 14 and 13 of 15 qualified). Same instruction; the rules differ:
+  - A, as the dev stream: doors open to heat or chill, only a washed object can be chilled, a washed object can no
+    longer be heated, one door at a time;
+  - B: doors open to heat or chill, only a washed object can be heated, a washed object can no longer be chilled,
+    any number of doors;
+  - C: only chilling needs the door open, both need a washed object, one door at a time.
 
 ## What the code does
 
@@ -227,6 +249,11 @@ What the extension runs show:
   freeze `--v2` removes. Haiku with `--v2` never learned that the microwave must be open; it kept proposing the
   opposite ("nothing can be heated with the door open"), which also fits one failure (a washed potato heated with
   the door open), and retried heating six or seven times per kitchen in states that differed only elsewhere.
+- **Validation 5.** Paper's version: no kitchen with any model or rule set. Two failures of `--v2` traced: on rules
+  B, Opus learned the heating rules by the second kitchen but kept blaming failed chilling on the door ("an
+  appliance that opens cannot chill") instead of the washing, so it washed the mug first and then failed to chill
+  it three or four times in every kitchen. Haiku on rules A never learned when heating works either: 49 failed
+  attempts to heat over the ten kitchens, ending with the rule that a potato cannot be heated.
 - **Dev stream with `--v2` (Opus)**: 5 of 11, the last four in a row; a first version without the retry rule scored
   4 (it no longer replays). Not a fair test, since `--v2` was developed on this stream.
 - **Validation 3 (Opus `--plus`).** From the fourth kitchen on every episode succeeds: the rules learned in the first three carry
