@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 from tabulate import tabulate
 
-from Alfworld.data.base.base_program import BASE_ASP_PROGRAM, PHYSICS
+from Alfworld.data.base.base_program import BASE_ASP_PROGRAM, PHYSICS, V2
 from Alfworld.our_pipeline import Pipeline, load_demos
 from env_utils import run_alfworld
 
@@ -34,10 +34,11 @@ def setup_pipeline(args):
         pipeline.hard_tasks = tasks if isinstance(tasks, list) else [tasks]
         pipeline.max_steps = pipeline.hard_tasks[0]['max_steps']
         args.eval_episode_num = len(pipeline.hard_tasks)
-    pipeline.asp_program = BASE_ASP_PROGRAM.replace('{max_step}', str(pipeline.max_steps)) + (PHYSICS if args.plus else '')
+    pipeline.asp_program = (BASE_ASP_PROGRAM.replace('{max_step}', str(pipeline.max_steps))
+                            + (PHYSICS if args.plus else '') + (V2 if args.v2 else ''))
     pipeline.clingo_seed = args.seed
     engine = re.sub(r'[^\w.-]', '_', args.engine)  # model ids may contain '/' or ':'
-    suffix = '_plus' if args.plus else '_hints' if args.hints else ''
+    suffix = '_v2' if args.v2 else '_plus' if args.plus else '_hints' if args.hints else ''
     pipeline.rule_save_path = args.rule_path or f'./Alfworld/data/ilp_rule_{engine}{suffix}.txt'
     pipeline.load_prompt(PROMPTS)
     pipeline.demos = load_demos(pipeline.parse_demo)
@@ -107,9 +108,11 @@ def main():
     parser.add_argument('--revise', action='store_true', help='extension: learned rules can be broken and retracted')
     parser.add_argument('--hints', action='store_true', help='extension: three general guidelines in the rule prompt')
     parser.add_argument('--plus', action='store_true', help='extension: --hints --revise, type predicates, PDDL effects, runtime experience as current evidence')
+    parser.add_argument('--v2', action='store_true', help='extension: --plus, the robot is where it went, a stuck planner tests all learned rules')
     parser.add_argument('--asp', action='store_true', help='use ASP solver')
     parser.add_argument('--ilp', action='store_true', help='use ILP rules')
     args = parser.parse_args()
+    args.plus = args.plus or args.v2
     if args.plus:
         args.hints = args.revise = True
 

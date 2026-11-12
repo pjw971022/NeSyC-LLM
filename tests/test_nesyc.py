@@ -4,7 +4,7 @@ import json
 from Alfworld import llm_utils
 from Alfworld.baselines import ReActAgent, retrieve
 from Alfworld import our_pipeline as op
-from Alfworld.data.base.base_program import BASE_ASP_PROGRAM, PHYSICS
+from Alfworld.data.base.base_program import BASE_ASP_PROGRAM, PHYSICS, V2
 from Alfworld.our_pipeline import ALPHA, Pipeline, extract_rules, interpret, load_demos
 from utils import parse_answer_set
 
@@ -256,6 +256,56 @@ def test_plus_counts_earlier_failures_as_evidence_from_the_current_environment(m
     p.remember([a.format(t=7) for a in common] + ['is_cleaned(mug_1,7)'], 7, ok=False)
     p.refine()
     assert washed in p.rules and door in p.rules
+
+
+def test_with_v2_the_robot_is_where_it_went():
+    room = ('location(fridge_1). location(counter_1). openable(fridge_1). is_fridge(fridge_1). '
+            'object(egg_1). is_egg(egg_1). at(egg_1, counter_1, 0).')
+    rules = '\n'.join(EXPERT + [':- action(put_down(O, L), T), not holding(O, T).'])
+    def plan(done, moves):  # the commands planned from step 2 on, after the two executed in `done`
+        program = [BASE_ASP_PROGRAM.replace('{max_step}', '6'), PHYSICS, moves, room, done, 'now(2).',
+                   'goal(T) :- is_open(fridge_1, T).', rules]
+        model = Pipeline().gen_answer_set('\n'.join(program))[0]
+        return [a for t, a in sorted(parse_answer_set(model)) if t >= 2]
+    went = 'action(go_to(fridge_1), 0). action(go_to(counter_1), 1).'
+    assert plan(went, '') == ['open fridge 1']  # the bug: it still believes it is at the fridge
+    assert plan(went, V2) == ['go to fridge 1', 'open fridge 1']
+    failed = 'action(go_to(fridge_1), 0). action(go_to(middle_of_room), 1).'  # how a failed action is recorded
+    assert plan(failed, V2) == ['open fridge 1']
+
+
+def test_with_v2_an_action_that_failed_is_not_planned_again_before_the_state_changes():
+    p = Pipeline()
+    p.asp_program = BASE_ASP_PROGRAM.replace('{max_step}', '6') + PHYSICS + V2
+    p.init_state = ('location(fridge_1). openable(fridge_1). is_fridge(fridge_1). location(counter_1). '
+                    'object(mug_1). is_mug(mug_1). at(mug_1, counter_1, 0).')
+    p.goal_state = 'goal(T) :- is_open(fridge_1, T).'
+    # step 0 went to the fridge; opening it at step 1 failed (recorded as the no-op placeholder)
+    p.dynamic_facts = 'action(go_to(fridge_1), 0). action(go_to(middle_of_room), 1).'
+    p.rules = EXPERT + [':- action(put_down(O, L), T), not holding(O, T).']
+    p.recent = [{'facts': 'robot_at(fridge_1,1). action(open(fridge_1),1). ', 'step': 1}]
+    def plan():
+        models = p.eval_single_plan({}, 2)
+        return models and [a for t, a in sorted(parse_answer_set(models[0])) if t >= 2]
+    assert plan() == ['open fridge 1']  # the same action in the same state
+    p.v2 = True
+    # going away and back is no change; holding the mug is
+    assert plan() == ['go to counter 1', 'take mug 1 from counter 1', 'go to fridge 1', 'open fridge 1']
+    p.init_state = p.init_state.replace('at(mug_1, counter_1, 0).', '')
+    assert not plan()  # nothing could change the outcome
+
+
+def test_with_v2_a_stuck_planner_also_tests_learned_rules_that_a_failure_seemed_to_confirm():
+    wrong = ':- action(put_down(O, L), T), is_shelf(L).'  # forbids the only way to reach the goal
+    p = Pipeline()
+    p.asp_program = BASE_ASP_PROGRAM.replace('{max_step}', '6')
+    p.init_state, p.goal_state = ROOM + 'at(mug_1, sink_1, 0).', GOAL
+    p.rules = EXPERT + [':- action(put_down(O, L), T), not holding(O, T).', wrong]
+    p.revise, p.learned = True, {wrong}
+    p.recent = [{'facts': 'action(put_down(mug_1, shelf_1), 3). is_shelf(shelf_1). '}]  # a failure it seems to explain
+    assert p.eval_single_plan({}) == []
+    p.v2 = True
+    assert p.eval_single_plan({})
 
 
 def test_a_rule_with_an_aggregate_can_still_be_doubted():
