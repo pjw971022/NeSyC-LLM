@@ -35,6 +35,9 @@ The LLM is one chat call to any OpenAI-compatible cloud endpoint (`Alfworld/llm_
 
 Free tiers are rate-limited. Every answer is cached (`LLM_CACHE`, default `llm_cache.json`; `.gz` works too), so an
 interrupted run resumes where it stopped. Use a non-reasoning chat model, or raise `--max_tokens` (default 256).
+For Gemini, use a key from an AI Studio project with no billing attached (the free tier): a prepaid project without
+credit answers every call, free models included, with `402 ... prepayment credits are depleted` (seen in November
+2026).
 
 ## Run
 
@@ -63,15 +66,30 @@ episode and 30 per hard task, at most 50 000 conflicts per planning call.
 
 ## Results
 
+### At a glance
+
+| Question | Answer |
+|---|---|
+| Does NeSyC beat ReAct / Reflexion with the same LLM? | **Once.** Haiku, hard suite: NeSyC `--v2` 3/6, ReAct 0/6, Reflexion 0/6. With Fable on the hard stream the baselines that carry memory are ahead (10 and 11 against 4); on the benchmark games every method solves nearly everything. |
+| How many LLM calls? | NeSyC needs **7–30× fewer**: one goal parse per game instead of one call per action. |
+| Paper's version on hidden-rule kitchens? | **0** with Opus, Sonnet and Haiku, on every stream it was run on. |
+| Extensions on the 120 held-out kitchens of validation 4–5? | Paper's version **0**, `--plus` **38**, `--v2` **69**. |
+| Does the paper's gap (82.9 % vs 35.8 %) appear? | No, in no run. |
+
+### How the numbers were produced
+
 No API key was available, so the LLM was **Claude, called through Claude Code sub-agents** that answered the
 recorded prompts. That is not a raw API call: temperature and the 256-token cap were not enforced, and one agent
 answered several prompts in a row (for the baselines, five games in a row, so it could carry knowledge from one game
 to the next). All prompts and answers ship in `Alfworld/data/llm_cache_*.json.gz`, and
 `bash Alfworld/script/replay.sh` replays all 72 runs below from them (one to two hours on 20 cores) and fails if any
-success rate differs. The baselines were not run with Opus or Sonnet, nor on validation 3–5: the sub-agents
-answering the ReAct prompts were stopped by those models' safeguards.
+success rate differs.
 
-Each table compares methods only within one model. Success is the number of episodes solved.
+The baselines were run with Fable and Haiku only. With Opus and Sonnet the sub-agents answering the ReAct prompts
+were stopped by those models' safeguards, so validation 3–5 have no baseline numbers. Every table compares methods
+within one model; a cell is the number of episodes solved in one run.
+
+### 1. NeSyC against the baselines
 
 **Claude Fable 5.2**
 
@@ -92,7 +110,32 @@ Each table compares methods only within one model. Success is the number of epis
 | ReAct | 20 | 0 | 7.2 per game |
 | Reflexion, 3 trials | 20 | 0 | 7.2 per game |
 
-**Claude Opus 5.5** on the dev stream and the first validation streams (NeSyC only):
+The hard suite was not used to develop `--v2`.
+
+### 2. Hidden-rule streams: NeSyC versions on held-out kitchens
+
+Each stream was fixed before the version it judges was run on it; [Hard tasks](#hard-tasks) lists the rules.
+Kitchens solved, 10 per stream:
+
+| Model | Version | Val. 3 | Val. 4 | Val. 5 · A | Val. 5 · B | Val. 5 · C | **Val. 4–5 (40)** |
+|---|---|---|---|---|---|---|---|
+| Opus 5.5 | NeSyC | 0 | 0 | 0 | 0 | 0 | **0** |
+| | `--plus` | 7 | 9 | 5 | 5 | 0 | **19** |
+| | `--v2` | | 7 | 9 | 0 | 9 | **25** |
+| Sonnet 5.5 | NeSyC | 0 | 0 | 0 | 0 | 0 | **0** |
+| | `--plus` | 0 | 0 | 0 | 0 | 0 | **0** |
+| | `--v2` | | 8 | 0 | 9 | 9 | **26** |
+| Haiku 5.5 | NeSyC | 0 | 0 | 0 | 0 | 0 | **0** |
+| | `--plus` | 0 | 9 | 0 | 0 | 10 | **19** |
+| | `--v2` | | 0 | 0 | 8 | 10 | **18** |
+| **All three** | NeSyC / `--plus` / `--v2` | | | | | | **0 / 38 / 69** of 120 |
+
+Per model and stream, `--v2` is ahead of `--plus` in 6 of 12 cells, behind in 3 (Opus on validation 4 and rules B,
+Haiku on validation 4) and tied in 3. Most cells are all or nothing (0, or 7–10 of 10): a version that learns the
+hidden rules in the first one to three kitchens solves nearly every later one. The exceptions are Opus `--plus` on
+rules A and B (5 each).
+
+### 3. How the extensions were developed (Opus, NeSyC only)
 
 | | Dev stream (11) | Validation 1 (11) | Validation 2 (11) |
 |---|---|---|---|
@@ -101,50 +144,26 @@ Each table compares methods only within one model. Success is the number of epis
 | NeSyC + `--hints` | 0 | | 0 |
 | NeSyC + `--hints --revise` | 0 | | 0 |
 | NeSyC + `--plus` | 0 | | |
-| NeSyC + `--v2` (tuned on this stream) | 5 | | |
+| NeSyC + `--v2` (developed on this stream) | 5 | | |
 
-**Held-out validation streams, three models** (NeSyC only; each stream was fixed before the version it judges was
-run on it, and each cell is one run):
+Each extension was then judged on a stream it had not been developed on: `--revise` on validation 1, `--hints` on 2,
+`--plus` on 3, `--v2` on 4 and 5. See [Extensions](#extensions-not-in-the-paper).
 
-| | Opus, val. 3 (10) | Opus, val. 4 (10) | Sonnet 5.5, val. 3 | Sonnet 5.5, val. 4 | Haiku, val. 3 | Haiku, val. 4 |
-|---|---|---|---|---|---|---|
-| NeSyC | 0 | 0 | 0 | 0 | 0 | 0 |
-| NeSyC + `--plus` | 7 | 9 | 0 | 0 | 0 | 9 |
-| NeSyC + `--v2` | | 7 | | 8 | | 0 |
+### What these runs show
 
-**Validation 5: three hidden-rule sets, ten new kitchens each** (fixed before any run on them; one run per cell):
+- **The baselines are not beaten where they work.** With the same model, NeSyC is ahead only on Haiku's hard suite,
+  where no other method solves anything. On Fable's hard stream ReAct with notes (10) and Reflexion (11) are well
+  ahead of the paper's NeSyC (4); `--v2` could not be run with Fable (usage limit).
+- **NeSyC is far cheaper**: 7–30× fewer LLM calls than the baselines (Fable and Haiku runs), since it asks the LLM
+  for a goal parse per game and for rules only after a failure, not for every action.
+- **Without the extensions NeSyC never solves a hidden-rule kitchen** with Opus, Sonnet or Haiku. In the runs that
+  were traced it learned a wrong rule from an ambiguous failure, never retracted it, and was left without a plan.
+- **With them it often does, and `--v2` more often than `--plus`** (69 against 38 of 120). When either fails, the
+  LLM blamed its first failures on the wrong condition, and the learned rules then left no plan or kept the agent
+  retrying the same action.
+- **Samples are small**: 6–30 games per cell and one run each, so a single cell says little.
 
-| | Rules A (10) | Rules B (10) | Rules C (10) | Total (30) |
-|---|---|---|---|---|
-| Opus, NeSyC | 0 | 0 | 0 | 0 |
-| Opus, `--plus` | 5 | 5 | 0 | 10 |
-| Opus, `--v2` | 9 | 0 | 9 | 18 |
-| Sonnet, NeSyC | 0 | 0 | 0 | 0 |
-| Sonnet, `--plus` | 0 | 0 | 0 | 0 |
-| Sonnet, `--v2` | 0 | 9 | 9 | 18 |
-| Haiku, NeSyC | 0 | 0 | 0 | 0 |
-| Haiku, `--plus` | 0 | 0 | 10 | 10 |
-| Haiku, `--v2` | 0 | 8 | 10 | 18 |
-
-What these runs show:
-
-- **With the same model, NeSyC is ahead of the baselines in one place**: Haiku's hard suite, where `--v2` solves 3
-  of 6 and ReAct, Reflexion, the paper's NeSyC and `--plus` solve none (the suite was not used to develop `--v2`).
-  On the benchmark games all methods solve (nearly) everything. On Fable's hard stream the baselines that carry
-  memory are well ahead (10 and 11 against 4); `--v2` could not be run with Fable (usage limit).
-- **NeSyC uses far fewer LLM calls**: one goal parse per game instead of one call per action, about 7 times fewer
-  on the benchmark games and 10 to 30 times fewer on the stream.
-- **The paper's version solves no hidden-rule kitchen with Opus, Sonnet or Haiku**, on every stream it was run on.
-- **The extensions are what makes NeSyC work there, and `--v2` does so more often.** Over the 120 held-out kitchens
-  of validation 4 and 5 (three models, four hidden-rule sets) the paper's version solves 0, `--plus` 38 and `--v2`
-  69. Per model and stream `--v2` is ahead in 6 of 12 cells, behind in 3 (Opus on validation 4, 9 → 7, and on
-  rules B, 5 → 0; Haiku on validation 4, 9 → 0) and tied in 3. Within a cell the outcome is close to all or
-  nothing: when a version fails, the LLM blamed its first failures on the wrong condition, and the learned rules
-  then leave no plan or keep the agent retrying the same action. One run per cell, so a single cell says little.
-- The paper's gap (NeSyC far ahead of ReAct and Reflexion) does not appear in any run. Samples are small: 6–30
-  games per cell, one run each.
-
-Details behind the numbers:
+### Details behind the numbers
 
 - **123 games.** Stage 1 produced a complete rule set, so no action failed and Algorithm 2's re-learning was not
   used; it is exercised by the hard tasks and the tests. The one failure is a goal parse: "Refrigerate the cleaned
@@ -157,9 +176,6 @@ Details behind the numbers:
   NeSyC ends its first episode with a rule set under which no plan exists and carries it into the next five. No
   ReAct or Reflexion episode managed to heat the potato. A first NeSyC run scored 4/20 because the interpreter kept
   a rule that forbade demonstrated actions; it now refuses such rules (that run no longer replays).
-- **Opus.** Each extension was judged on a validation stream it had not been tuned on (`--revise` on 1, `--hints` on
-  2, `--plus` on 3, `--v2` on 4, where the paper's version and `--plus` were run again for comparison); see
-  [Extensions](#extensions-not-in-the-paper). Sonnet and Haiku were run on validation 3 and 4 only.
 - **Settings that favour the baselines**: ReAct's thoughts do not use up environment steps, Reflexion counts a game
   as solved if any of its 3 trials succeeds, and the baselines get the same object locations and attributes that
   NeSyC plans with. Demonstrations are retrieved by TF-IDF (the original sentence-embedding retriever is gone).
@@ -176,23 +192,34 @@ success is scored.
   fail unless the appliance door is open.
 - `hard_suite.json`: the same instruction in six kitchens, plus a second hidden precondition (the object must have
   been washed first), which the demonstrations contradict.
-- `hard_stream.json` (the dev stream): eleven kitchens, the potato must end up hot and washed, and four hidden rules
-  hold everywhere: doors must be open to heat or chill; only a washed object can be chilled; only one door may be
-  open at a time; a washed object can no longer be heated, so washing first is a dead end.
-- `hard_stream_test*.json`: validation streams with the same task. Kitchens are taken in a seeded order over the 44
-  eligible ones of `valid_seen` (all six objects present, original task unrelated) and kept if the planner solves
-  them when given all the right rules: 22 of the first 30 (validation 1 and 2), 10 of the last 14 (validation 3).
-- `hard_stream_test4.json` (validation 4, run with `--split train`): the first 15 eligible games of the training
-  split in a seeded order (seed 2027), of which the planner solves 10 when given the right rules; the `--plus` and
-  `--v2` planners solve the same 10. It was fixed before any `--v2` run on it and has since been used for diagnosis.
-- `hard_stream_test5{a,b,c}.json` (validation 5, `--split train`): the next 45 eligible training games in a seeded
-  order (seed 2028), 15 per hidden-rule set, keeping the first 10 that both the `--plus` and the `--v2` planner
-  solve when given the right rules (11, 14 and 13 of 15 qualified). Same instruction; the rules differ:
-  - A, as the dev stream: doors open to heat or chill, only a washed object can be chilled, a washed object can no
-    longer be heated, one door at a time;
-  - B: doors open to heat or chill, only a washed object can be heated, a washed object can no longer be chilled,
-    any number of doors;
-  - C: only chilling needs the door open, both need a washed object, one door at a time.
+- **Hidden-rule streams**: the same instruction, except that the potato must end up hot *and* washed, in a row of
+  kitchens that share hidden rules. Learned rules carry over from one kitchen to the next (`--continual`).
+
+| Stream | File | Kitchens | Split | Rules |
+|---|---|---|---|---|
+| Dev | `hard_stream.json` | 11 | `valid_seen` | A |
+| Validation 1, 2 | `hard_stream_test.json`, `hard_stream_test2.json` | 11 + 11 | `valid_seen` | A |
+| Validation 3 | `hard_stream_test3.json` | 10 | `valid_seen` | A |
+| Validation 4 | `hard_stream_test4.json` | 10 | `train` | A |
+| Validation 5 | `hard_stream_test5{a,b,c}.json` | 10 + 10 + 10 | `train` | A, B, C |
+
+| Hidden rule | A | B | C |
+|---|---|---|---|
+| heating needs the microwave door open | ✓ | ✓ | |
+| chilling needs the fridge door open | ✓ | ✓ | ✓ |
+| only a washed object can be heated | | ✓ | ✓ |
+| only a washed object can be chilled | ✓ | | ✓ |
+| a washed object can no longer be heated | ✓ | | |
+| a washed object can no longer be chilled | | ✓ | |
+| only one door may be open at a time | ✓ | | ✓ |
+
+How the kitchens were chosen: all six objects present (mug, potato, coffee machine, sink, fridge, microwave), an
+original task about something else, a seeded order, and kept only if the planner solves the kitchen when given all
+the right rules. Validation 1–3 take 32 of the 44 eligible `valid_seen` kitchens (22 of the first 30, 10 of the
+last 14). Validation 4 takes 10 of the first 15 eligible training games (seed 2027). Validation 5 takes the next 45
+(seed 2028), 15 per rule set, and keeps the first 10 that both the `--plus` and the `--v2` planner solve (11, 14
+and 13 of 15 qualified); on validation 4 the two planners solve the same 10. Run the training-split streams with
+`--split train`. Validation 4 has since been used to trace failures, validation 5 only to report them.
 
 ## What the code does
 
@@ -243,37 +270,38 @@ All off by default, so every NeSyC number without a flag is the paper's method.
 
 What the extension runs show:
 
-- **Validation 4.** Where a version does well, the first one or two kitchens fail while the hidden rules are learned
-  and nearly every later one succeeds (Opus `--plus` from the 2nd kitchen, Sonnet `--v2` from the 3rd). Sonnet with
-  `--plus` failed in each kitchen within a few actions and then had no plan for the remaining 23–26 steps: the
-  freeze `--v2` removes. Haiku with `--v2` never learned that the microwave must be open; it kept proposing the
-  opposite ("nothing can be heated with the door open"), which also fits one failure (a washed potato heated with
-  the door open), and retried heating six or seven times per kitchen in states that differed only elsewhere.
-- **Validation 5.** Paper's version: no kitchen with any model or rule set. Two failures of `--v2` traced: on rules
-  B, Opus learned the heating rules by the second kitchen but kept blaming failed chilling on the door ("an
+- **Validation 5.** Paper's version: no kitchen with any model or rule set. Two failures of `--v2` traced: on
+  rules B, Opus learned the heating rules by the second kitchen but kept blaming failed chilling on the door ("an
   appliance that opens cannot chill") instead of the washing, so it washed the mug first and then failed to chill
   it three or four times in every kitchen. Haiku on rules A never learned when heating works either: 49 failed
   attempts to heat over the ten kitchens, ending with the rule that a potato cannot be heated.
-- **Dev stream with `--v2` (Opus)**: 5 of 11, the last four in a row; a first version without the retry rule scored
-  4 (it no longer replays). Not a fair test, since `--v2` was developed on this stream.
-- **Validation 3 (Opus `--plus`).** From the fourth kitchen on every episode succeeds: the rules learned in the first three carry
-  over, and two wrong rules the LLM proposed (nothing can be closed with an object inside; nothing can be put on a
-  receptacle that is not openable unless that receptacle stands somewhere) were broken when they left no plan, the
-  action worked, and they were deleted.
-- **Dev stream with `--plus` (Opus), 0.** Opus proposed rules that make the task impossible (a mug cannot be chilled;
-  a sliceable object cannot be heated; nothing can be chilled with the door open). Each fits the failure it was
-  proposed for, so it counts as confirmed in that episode and is not doubted. Some of those failures were stored
-  with the wrong robot location (the bug `--v2` fixes). The type predicates make some of these rules possible
-  (`is_mug(O)`), so they help and hurt.
+- **Validation 4.** Where a version does well, the first one or two kitchens fail while the hidden rules are
+  learned and nearly every later one succeeds (Opus `--plus` from the 2nd kitchen, Sonnet `--v2` from the 3rd).
+  Sonnet with `--plus` failed in each kitchen within a few actions and then had no plan for the remaining 23–26
+  steps: the freeze `--v2` removes. Haiku with `--v2` never learned that the microwave must be open; it kept
+  proposing the opposite ("nothing can be heated with the door open"), which also fits one failure (a washed
+  potato heated with the door open), and retried heating six or seven times per kitchen in states that differed
+  only elsewhere.
+- **Validation 3 (Opus `--plus`).** From the fourth kitchen on every episode succeeds: the rules learned in the
+  first three carry over, and two wrong rules the LLM proposed (nothing can be closed with an object inside;
+  nothing can be put on a receptacle that is not openable unless that receptacle stands somewhere) were broken
+  when they left no plan, the action worked, and they were deleted.
+- **Dev stream with `--plus` (Opus), 0.** Opus proposed rules that make the task impossible (a mug cannot be
+  chilled; a sliceable object cannot be heated; nothing can be chilled with the door open). Each fits the failure
+  it was proposed for, so it counts as confirmed in that episode and is not doubted. Some of those failures were
+  stored with the wrong robot location (the bug `--v2` fixes). The type predicates make some of these rules
+  possible (`is_mug(O)`), so they help and hurt.
+- **Dev stream with `--v2` (Opus)**: 5 of 11, the last four in a row; a first version without the retry rule
+  scored 4 (it no longer replays). Not a fair test, since `--v2` was developed on this stream.
 - With the right rules supplied by a script, NeSyC, `--revise` and `--plus` all solve 10 of 11 dev kitchens; the
   eleventh becomes unsolvable once the potato is washed before the agent knows that washed food cannot be heated.
   The `--v2` planner solves all 11.
 - Bugs and dropped variants: the first `--plus` run on validation 3 scored 1/10 because a rule with an aggregate
-  (`#count{...}`) became an invalid weak constraint and clingo rejected every fallback program; the fixed run reuses
-  that run's answers up to that point. Two variants were dropped after a scripted check on the dev stream, before
-  any LLM run: a first `--revise` (a rule learned from one failure could be broken for the cost of 3 actions)
-  retried a futile action 13 times, and keeping a new rule only if it explained an otherwise unexplained failure
-  made the agent relearn correct rules one failure at a time and run out of steps.
+  (`#count{...}`) became an invalid weak constraint and clingo rejected every fallback program; the fixed run
+  reuses that run's answers up to that point. Two variants were dropped after a scripted check on the dev stream,
+  before any LLM run: a first `--revise` (a rule learned from one failure could be broken for the cost of 3
+  actions) retried a futile action 13 times, and keeping a new rule only if it explained an otherwise unexplained
+  failure made the agent relearn correct rules one failure at a time and run out of steps.
 
 ## Changes since `bad2329`
 
@@ -291,7 +319,8 @@ What the extension runs show:
   predicates; non-stationary initial states were not valid ASP. The robot not moving when it goes somewhere is fixed
   only under `--v2`, so that the earlier runs still replay.
 - **LLM**: any OpenAI-compatible endpoint, key from the environment, on-disk cache. LangChain, Replicate,
-  sentence-transformers and `environment.yml` are gone (`requirements.txt`).
+  sentence-transformers and `environment.yml` are gone (`requirements.txt`; `openai>=1.55.3`, since older clients
+  fail to start with `httpx` 0.28).
 - **Added**: the baselines, the hard tasks, the extensions, `pytest` checks and `script/replay.sh`.
 
 ## Citation
