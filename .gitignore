@@ -5,3 +5,5 @@ __pycache__/
 llm_cache.json
 Alfworld/data/error_log/
 Alfworld/*_results.csv
+.env.*
+*.swp
